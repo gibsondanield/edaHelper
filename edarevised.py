@@ -26,6 +26,7 @@ from sklearn.lda import LDA
 from sklearn.qda import QDA
 from sklearn.decomposition import TruncatedSVD, PCA
 import scatterplot as scplt
+
 from statsmodels.nonparametric.kernel_density import KDEMultivariate
 
 
@@ -46,10 +47,8 @@ class Unsupervised(object):
         self.y = map(bool, y)
         self.processes = processes
         self.pool = Pool(processes=processes)
-        self.log = ['Initialized object']
 
     def reduce_dimensions(self, ndim=3, methods=['tSVD'], classifier=None, plot2d=True, plot3d=False):
-        self.log.append('reduce_dimensions(ndim= %s , methods=%s, classifier=%s, plot2d=%s, plot3d=%s)' %(ndim,methods,classifier,plot2d,plot3d))
         self.ndim = ndim
 
         clf = self.rf
@@ -87,7 +86,6 @@ class BinaryClassification(Unsupervised):
 
     def plot_kdes(self, bandwidth=.4, n_features=9, alpha=.10):
         '''Uses various methods (RF feature importance, Two-tailed hypothesis testing) to identify variables of potential interest and plot them using a kde. Bandwith may be changed but defaults to ?. P-values are shown for two-tailed hypothesis test'''
-        self.log.append('plot_kdes')        
         # run random forest to get feature importance
         features = self.rf.feature_importances_.argsort()[:n_features]
         self.rf_importances = self.rf.feature_importances_[features]
@@ -103,22 +101,21 @@ class BinaryClassification(Unsupervised):
         plt.tight_layout()
 
     def classify(self, grid_density=.02, holdout_set=False, n_folds=5):
-        self.log.append('classify')
+        pass
 
     def correlated_features(self, n_features, plot=True):
-        self.log.append('correlated_features')
+        pass
 
     def plot_rocs(self):
-        self.log.append('plot_rocs()')
-        
+        pass
 
     def plot_decision_tree(self, max_splits):
         '''http://scikit-learn.org/stable/modules/tree.html'''
-        self.log.append('plot_decision_tree')
+        pass
 
     def plot2d_gridsearch_heatmap():
         '''http://scikit-learn.org/stable/auto_examples/svm/plot_rbf_parameters.html'''
-        self.log.append('plot2d_gridsearch_heatmap')
+        pass
 
     def plot3D_predictions(self, features_to_use='all', max_plots=3, max_n_features=9, models=['SVC', 'GaussianNB'], plot_decision_boundary=False):
         '''Plots cross section of decision boundary using mean values for missing dimension'''
@@ -130,7 +127,6 @@ class BinaryClassification(Unsupervised):
         FN = Orange
         Plots surfaces for Some things?'''
         '''rf_important, '''
-        self.log.append('plot3D_predictions')
         self.models = models
         self.svc_kernels = ["linear", "rbf"]
 
@@ -173,12 +169,12 @@ if __name__ == '__main__':
     X, y = make_classification(n_features=10, n_samples=1000, n_informative=5,
                                n_clusters_per_class=3, n_redundant=0, hypercube=True, flip_y=.5)
     X = pd.DataFrame(X)
-    bc = BinaryClassification(X,y)
-#    l = pd.read_csv('../deprivationProject/licwData.csv')
-#    l = l.drop(u'Unnamed: 0', axis=1)
-#    l = l.drop(0, axis=0)
-#    d = pd.read_csv('../deprivationProject/deprivationColumn').True
+
+    l = pd.read_csv('../deprivationProject/licwData.csv')
+    l = l.drop(u'Unnamed: 0', axis=1)
+    l = l.drop(0, axis=0)
+    d = pd.read_csv('../deprivationProject/deprivationColumn').True
     bc = BinaryClassification(l, d)
     bc.reduce_dimensions()
-    bc.plot_kdes()
-    bc.plot_predictions()
+#    bc.plot_kdes()
+#    bc.plot_predictions()

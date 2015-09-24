@@ -15,14 +15,14 @@ def tfpn(y_true,y_pred, max_points = 100):
     fn =map(bool,y_true*(y_pred_false))
     return tp, tn, fp, fn
 
-def scatteBinary(data, y_true, y_pred, feature_names=None, threeD=False, max_points = 100, max_plots=3, figure_no=1, decision_fxn=None):
+def binary(data, y_true, y_pred, feature_names=None, twoD=True, threeD=False, max_points = 100, max_plots=3, figure_no=1, decision_fxn=None):
     '''Randomly selects max_points data points to be plotted from each category'''
     '''feature names must be nested list of lists of 3 features'''    
     colors = ['g','b','r','y']    
     data = pd.DataFrame(data)
     tp, tn, fp, fn = tfpn(y_true,y_pred, max_points)
 #    print 'scattering1', data.info()
-    print 'tp, tn, fp, fn = ', sum(TP), sum(TN), sum(FP), sum(FN)
+    print 'tp, tn, fp, fn = ', sum(tp), sum(tn), sum(fp), sum(fn)
     for i in range(max_plots):
         
 #        print 'scattering2'
@@ -32,7 +32,7 @@ def scatteBinary(data, y_true, y_pred, feature_names=None, threeD=False, max_poi
             cols = (data.columns[3*i],data.columns[3*i+1],data.columns[3*i+2])
     #        print 'cols ', cols
     #        print 'dims ;',data.columns
-            for outcome, c, m in [(TP,'g','o'),(TN,'b','o'), (FP,'r','^'), (FN,'y','^')]:
+            for outcome, c, m in [(tp,'g','o'),(tn,'b','o'), (fp,'r','^'), (fn,'y','^')]:
     #            print 'colour ', c, 'sum outcome ', sum(outcome), outcome
                 xs = data[outcome][cols[0]]
     #            print 'xs ',xs
@@ -44,19 +44,25 @@ def scatteBinary(data, y_true, y_pred, feature_names=None, threeD=False, max_poi
             ax.set_xlabel(cols[0])
             ax.set_ylabel(cols[1])
             ax.set_zlabel(cols[2])
-            
-        else: #make 2d plot
+            scatter1_proxy = matplotlib.lines.Line2D([0],[0], linestyle="none", c=colors[0], marker = 'o')
+            scatter2_proxy = matplotlib.lines.Line2D([0],[0], linestyle="none", c=colors[1], marker = 'v')
+            ax.legend([scatter1_proxy, scatter2_proxy], ['label1', 'label2'], numpoints = 1)
+
+            if decision_fxn:
+                '''plot decision boundary x-section'''
+                pass
+        if twoD: #make 2d plot
             plt.scatter(data.T[0],data.T[1])
         
-        if decision_fxn:
-            '''plot decision boundary x-section'''
-            pass
+            if decision_fxn:
+                '''plot decision boundary x-section'''
+                pass
         
-        scatter1_proxy = matplotlib.lines.Line2D([0],[0], linestyle="none", c=colors[0], marker = 'o')
-        scatter2_proxy = matplotlib.lines.Line2D([0],[0], linestyle="none", c=colors[1], marker = 'v')
-        ax.legend([scatter1_proxy, scatter2_proxy], ['label1', 'label2'], numpoints = 1)
         plt.show()
-        
+
+
+
+
 def scatterRegression():
     pass
 
