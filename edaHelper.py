@@ -25,11 +25,26 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.lda import LDA
 from sklearn.qda import QDA
 from sklearn.decomposition import TruncatedSVD, PCA
+from sklearn.preprocessing import scale
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.cross_validation import ShuffleSplit
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.preprocessing import StandardScaler
+from sklearn.cross_validation import train_test_split
+from sklearn.svm import SVR
 import scatterplot as scplt
+from sklearn_pandas import DataFrameMapper, cross_val_score
 #statsmodels imports
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from statsmodels.nonparametric.kernel_density import KDEMultivariate
+
+def strip_col_names(df):
+    pass
+
+def recreate_df(df, x, cols):
+    pass
 
 def drop_singulars(df):
     '''Iterates through dataframe dropping columns with only one value. Returns dataframe'''
@@ -48,29 +63,52 @@ def kde_statsmodels_m(x, x_grid, bandwidth=0.2, **kwargs):
 
 
 class Unsupervised(object):
-
+    '''Input 'clean' dataset with anytimestamps conderted to pandas datetimeindex.
+    Uses fit methods on objects as opposed to fit_transform.'''
     def __init__(self, features_df, y=None, processes=4):
-        sc = StandardScaler()
         self.features_df = features_df
         self.features_df.columns = map(unicode, self.features_df.columns)
-        self.X = pd.DataFrame(sc.fit_transform(features_df))
-        self.y = map(bool, y)
+        self.x = pd.DataFrame(features_df)
+        self.y = map(bool, y) #why did I do this?
         self.processes = processes
         self.pool = Pool(processes=processes)
         self.log = ['Initialized object']
         
+    def normalize(which_subset='train',**kwargs):
+        '''Uses StandardScaler'''
+        self.log.append('normalize')
+        if which_subset=='train':
+            self.sc_train=StandardScaler(**kwargs)
+            try:
+                self.sc_train.fit(self.x_train)
+            except:
+                print 'Training data not available. Run train_test_split'
+        elif which_subset=='test':
+            self.sc_test=StandardScaler(**kwargs)
+            try:
+                self.sc_test.fit(self.x_test)
+            except:
+                print 'Test data not available. Run train_test_split'
+        elif which_subest == 'all':
+            self.sc_te=StandardScaler(**kwargs)
+            self.sc_train.fit(self.x)
+            
+            
     def train_test_split(n_xval_folds=5,holdout=0):
         '''Splits data into test and training sets. Holdout is the proportion of data to be kept in the holdout set'''
-        if holdout:
-            pass
+        if holdout:#use indices for this
+            ss= ShuffleSplit()
+            self.holdout_indices = 
+#        self.x_train, self.xholdout,self.y_train,self.y_holdout= train_test_split(self.df,self.y,train_size=holdout)
         if n_xval_folds:
-            
+            pass
         
     def categorize(self, max_unique_vars=100, make_dummies=False):
         '''distinguish categorical variables from continuous, make dummy variables for categorical'''
         ''' find blank columns'''
         self.varTypes = {}
         for col in self.features_df.columns:
+            if type(features_df[col]):
             if set(self.features_df[col])>max_unique_vars:
                 self.varTypes[col]='Continuous'
             else:
@@ -79,6 +117,7 @@ class Unsupervised(object):
                     pass
         
     def reduce_dimensions(self, ndim=3, methods=['tSVD'], classifier=None, plot2d=True, plot3d=False):
+        '''To fit or to fit trainsform, that is the question'''
         self.log.append('reduce_dimensions(ndim= %s , methods=%s, classifier=%s, plot2d=%s, plot3d=%s)' %(ndim,methods,classifier,plot2d,plot3d))
         self.ndim = ndim
 
@@ -194,8 +233,17 @@ class Regression(Unsupervised):
     def plot_against_y():
         '''Where colour is squared error or some other var'''
         scplt.scatterRegression()
+        
     def linreg():
-        lm = sm.OLS(endog=ytrain,exog=xtrain,hasconst=1).fit
+        '''Uses statsmodels OLS for linear regression. Automatically inserts constant'''
+        x=np.hstack((x,np.ones((len(x),1))))
+        lm = sm.OLS(endog=ytrain,exog=xtrain,hasconst=1).fit()
+        
+    def plot_residuals():
+        pass
+    
+    def hederscedacity_check():
+        pass
 
 
 class Timeseries:
