@@ -7,13 +7,13 @@ Created on Thu Sep 10 16:52:07 2015
 
 @author: Daniel D. Gibson
 """
-import threading
+#import threading
 from multiprocessing import Pool
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib.colors import ListedColormap
+#from mpl_toolkits.mplot3d import Axes3D
+#from matplotlib.colors import ListedColormap
 from sklearn.cross_validation import train_test_split, KFold
 from sklearn.preprocessing import StandardScaler
 from sklearn.datasets import make_moons, make_circles, make_classification
@@ -26,8 +26,19 @@ from sklearn.lda import LDA
 from sklearn.qda import QDA
 from sklearn.decomposition import TruncatedSVD, PCA
 import scatterplot as scplt
+#statsmodels imports
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
 from statsmodels.nonparametric.kernel_density import KDEMultivariate
 
+def drop_singulars(df):
+    '''Iterates through dataframe dropping columns with only one value. Returns dataframe'''
+    dropped = []
+    for col in df.columns:
+        if len(set(df[col]))==1:
+            df=df.drop(col,axis=1)
+            dropped.append(col)
+    return df,dropped
 
 def kde_statsmodels_m(x, x_grid, bandwidth=0.2, **kwargs):
     """Multivariate Kernel Density Estimation using Statsmodels"""
@@ -47,7 +58,26 @@ class Unsupervised(object):
         self.processes = processes
         self.pool = Pool(processes=processes)
         self.log = ['Initialized object']
-
+        
+    def train_test_split(n_xval_folds=5,holdout=0):
+        '''Splits data into test and training sets. Holdout is the proportion of data to be kept in the holdout set'''
+        if holdout:
+            pass
+        if n_xval_folds:
+            
+        
+    def categorize(self, max_unique_vars=100, make_dummies=False):
+        '''distinguish categorical variables from continuous, make dummy variables for categorical'''
+        ''' find blank columns'''
+        self.varTypes = {}
+        for col in self.features_df.columns:
+            if set(self.features_df[col])>max_unique_vars:
+                self.varTypes[col]='Continuous'
+            else:
+                self.varTypes[col]='Categorical'
+                if make_dummies:
+                    pass
+        
     def reduce_dimensions(self, ndim=3, methods=['tSVD'], classifier=None, plot2d=True, plot3d=False):
         self.log.append('reduce_dimensions(ndim= %s , methods=%s, classifier=%s, plot2d=%s, plot3d=%s)' %(ndim,methods,classifier,plot2d,plot3d))
         self.ndim = ndim
@@ -96,9 +126,9 @@ class BinaryClassification(Unsupervised):
             plt.subplot(n_features / 3 + 1, 3, i)
 #             print type(self.X)
             plt.plot(kde_statsmodels_m(self.features_df[self.y][v], np.linspace(
-                0, 12, 2000), bandwidth=bandwidth), label='True')
+                0, 12, 2000), bandwidth=bandwidth), label='True '+v)
             plt.plot(kde_statsmodels_m(self.features_df[map(lambda x:not x, self.y)][
-                     v], np.linspace(0, 12, 2000), bandwidth=bandwidth), label='False')
+                     v], np.linspace(0, 12, 2000), bandwidth=bandwidth), label='False '+v)
         plt.legend(loc=0)
         plt.tight_layout()
 
@@ -145,6 +175,16 @@ class BinaryClassification(Unsupervised):
     def max_profit(self, cost_benefit_matrix):
         pass
 
+class Classification(Unsupervised):
+
+    def __init__(self, features_df, y, processes=4):
+        super(Classification, self).__init__(features_df, y, processes)
+        self.n_classes =  len(set(y))
+        
+    def print_class_proportions():
+        print y.value_counts()
+        y.hist()
+
 
 class Regression(Unsupervised):
 
@@ -154,6 +194,8 @@ class Regression(Unsupervised):
     def plot_against_y():
         '''Where colour is squared error or some other var'''
         scplt.scatterRegression()
+    def linreg():
+        lm = sm.OLS(endog=ytrain,exog=xtrain,hasconst=1).fit
 
 
 class Timeseries:
@@ -178,7 +220,7 @@ if __name__ == '__main__':
 #    l = l.drop(u'Unnamed: 0', axis=1)
 #    l = l.drop(0, axis=0)
 #    d = pd.read_csv('../deprivationProject/deprivationColumn').True
-    bc = BinaryClassification(l, d)
+#    bc = BinaryClassification(l, d)
     bc.reduce_dimensions()
     bc.plot_kdes()
-    bc.plot_predictions()
+#    bc.plot_predictions()
