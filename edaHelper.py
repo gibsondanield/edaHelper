@@ -66,6 +66,7 @@ class Unsupervised(object):
     '''Input 'clean' dataset with anytimestamps conderted to pandas datetimeindex.
     Uses fit methods on objects as opposed to fit_transform.'''
     def __init__(self, features_df, y=None, processes=4):
+        
         self.features_df = features_df
         self.features_df.columns = map(unicode, self.features_df.columns)
         self.x = pd.DataFrame(features_df)
@@ -96,9 +97,10 @@ class Unsupervised(object):
             
     def train_test_split(n_xval_folds=5,holdout=0):
         '''Splits data into test and training sets. Holdout is the proportion of data to be kept in the holdout set'''
+        self.log.append('test train split')        
         if holdout:#use indices for this
             ss= ShuffleSplit()
-            self.holdout_indices = 
+            self.holdout_indices = None
 #        self.x_train, self.xholdout,self.y_train,self.y_holdout= train_test_split(self.df,self.y,train_size=holdout)
         if n_xval_folds:
             pass
@@ -106,9 +108,11 @@ class Unsupervised(object):
     def categorize(self, max_unique_vars=100, make_dummies=False):
         '''distinguish categorical variables from continuous, make dummy variables for categorical'''
         ''' find blank columns'''
+        self.log.append('categorize')
         self.varTypes = {}
         for col in self.features_df.columns:
-            if type(features_df[col]):
+            if type(features_df[col]) in ['datetime64[ns]','<M8[ns]']:
+                self.varTypes[col] = 'Time'
             if set(self.features_df[col])>max_unique_vars:
                 self.varTypes[col]='Continuous'
             else:
@@ -138,11 +142,11 @@ class Unsupervised(object):
             self.Pca.fit(self.X)
 
     def cluster(self, methods=['kmeans']):
-
-        pass
+        self.log.append('cluster')
+        
 
     def plot_clusters(self):
-        pass
+        self.log.append('plot clusters')
 
 
 class BinaryClassification(Unsupervised):
@@ -202,17 +206,16 @@ class BinaryClassification(Unsupervised):
         self.log.append('plot3D_predictions')
         self.models = models
         self.svc_kernels = ["linear", "rbf"]
-
         scplt.binary(self.features_df, self.y, self.rf.predict(self.X))
 
     def plot2d_predictions(self):
-        pass
+        self.log.append('plot2d_predictions()')
 
     def compare_model_performance(self):
-        pass
+        self.log.append('compare_model_performance()')
 
     def max_profit(self, cost_benefit_matrix):
-        pass
+        self.log.append('max_profit')
 
 class Classification(Unsupervised):
 
@@ -230,7 +233,7 @@ class Regression(Unsupervised):
     def __init__(self, features_df, y, processes=4):
         super(BinaryClassification, self).__init__(features_df, y, processes)
 
-    def plot_against_y():
+    def plot_against_y(function=None):
         '''Where colour is squared error or some other var'''
         scplt.scatterRegression()
         
@@ -240,14 +243,14 @@ class Regression(Unsupervised):
         lm = sm.OLS(endog=ytrain,exog=xtrain,hasconst=1).fit()
         
     def plot_residuals():
-        pass
+        self.log.append('plot_residuals')
     
-    def hederscedacity_check():
-        pass
+    def heteroscedacity_check():
+        self.log.append('')
 
 
 class Timeseries:
-    pass
+    
 
     def plot():
         '''Plots:
