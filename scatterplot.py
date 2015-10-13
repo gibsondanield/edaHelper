@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 import random as rd
 
+
 def tfpn(y_true,y_pred, max_points = 100):
     y_false=pd.DataFrame(map(lambda x:not x,y_true))
     y_pred_false =pd.DataFrame( map(lambda x:not x,y_pred))
@@ -15,6 +16,12 @@ def tfpn(y_true,y_pred, max_points = 100):
     fn =map(bool,y_true*(y_pred_false))
     return tp, tn, fp, fn
 
+def kde_statsmodels_m(x, x_grid, bandwidth=0.2, **kwargs):
+    """Multivariate Kernel Density Estimation using Statsmodels"""
+    kde = KDEMultivariate(x, bw=bandwidth * np.ones_like(x),
+                          var_type='c', **kwargs)
+    return kde.pdf(x_grid)
+    
 def binary(data, y_true, y_pred, feature_names=None, twoD=True, threeD=False, max_points = 100, max_plots=3, figure_no=1, decision_fxn=None):
     '''Randomly selects max_points data points to be plotted from each category'''
     '''feature names must be nested list of lists of 3 features'''    
