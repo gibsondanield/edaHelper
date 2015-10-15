@@ -40,6 +40,7 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from statsmodels.nonparametric.kernel_density import KDEMultivariate
 from bokeh.charts import Scatter, show
+import seaborn as sns
 
 def strip_col_names(df,append=''):
     '''makes all columns available as attributes. checks for redundancy and appends append variable to redunant names'''
@@ -62,26 +63,6 @@ def drop_singulars(df):
             dropped.append(col)
     return df,dropped
     
-
-
-def kde_statsmodels_m(x, x_grid, bandwidth=0.2, **kwargs):
-    """Multivariate Kernel Density Estimation using Statsmodels"""
-    kde = KDEMultivariate(x, bw=bandwidth * np.ones_like(x),
-                          var_type='c', **kwargs)
-    return kde.pdf(x_grid)
-
-#def plot_line(x,y,title='Title',x_label='x',y_label='y'):
-#    from bokeh.plotting import figure, show
-#    
-#    
-#    # create a new plot with a title and axis labels
-#    p = figure(title=title, x_axis_label=x_label, y_axis_label=y_label)
-#    
-#    # add a line renderer with legend and line thickness
-#    p.line(x, y, legend="Temp.", line_width=2)
-#    
-#    # show the results
-#    show(p)
 
 class Unsupervised(object):
     '''Input 'clean' dataset with anytimestamps conderted to pandas datetimeindex.
@@ -153,32 +134,44 @@ class Unsupervised(object):
             pass
         
     def categorize(self, max_unique_vars=10):
-        '''distinguish categorical variables from continuous. manually change using the attribute varTypes (which is a dictionary)'''
+        '''distinguish categorical variables from continuous. only int and float64 are considered continuous variables'''
 
         self.log.append('categorize')
-        self.varTypes = {}
+#        self.varTypes = {}
         for col in self.df.columns:
-            if self.df[col].dtype in ['datetime64[ns]','<M8[ns]']:
-                self.varTypes[col] = 'Time'
-            else:
+#            print self.df[col].dtype
+            if self.df[col].dtype in ['object','float64','int']:
                 n=len(set(self.df[col]))
-                if n>max_unique_vars:
-                    if self.df[col].dtype in ['float64','int']:
-                        self.varTypes[col]='Numerical'
-                    else:
-                        if 0:#check for strings here
-                            self.varTypes[col]='Text'
-                        else:   
-                            self.varTypes[col]='Other'
-                else:
-                    if n == 1:
-                        self.varTypes[col]='Constant'
-                    elif n == 2:
-                        self.varTypes[col]=='Binary'
-                    else:
-                        self.varTypes[col]='Categorical'
-        print self.varTypes
+                print col,'has ',n,' unique values'
+                if n<=max_unique_vars:
+                    self.df[col]=self.df[col].astype('category')
+#                if n==2: #convert to bool
+#                    self.df[col]=self.df[col].astype(bool)
 
+        print self.df.info()
+    def plot_all(self,cols=None):
+        if cols==None:
+            cols=self.df.columns
+        for k,i in enumerate(cols):
+            for j in cols[k:]:
+                if i==j:
+                    if str(self.df[j].dtype) in ['category','bool']:
+                        pass
+                elif str(self.df[j].dtype) in ['category','bool']:
+                    if str(self.df[i].dtype) in ['category','bool']:
+                        plt.figure()
+                        sns.countplot(x=i,hue=j,data=self.df,palette="Greens_d")
+                    elif str(self.df[i].dtype) in ['int','float64']:
+                        plt.figure()
+                        sns.violinplot(x=i,y=j,data=self.df)
+                elif str(self.df[j].dtype) in ['int','float64']:
+                    if str(self.df[i].dtype) in ['category','bool']:
+                        plt.figure()
+                        sns.boxplot(x=i,y=j,data=self.df)
+                    elif str(self.df[i].dtype) in ['int','float64']:
+                        plt.figure()
+                        sns.jointplot(x=i,y=j,data=self.df) #fit lin reg???
+        
     def column_to_vec(self,**kwargs):
         '''Converts all text data to tfidf vectors'''
         self.log.append('column_to_vec')
@@ -294,7 +287,23 @@ class Regression(Unsupervised):
     def plot_against_y(self,function=None):
         '''Where colour is squared error or some other var'''
         #do linked plots here
-#        p=Scatter(self.df,x=)
+
+        cat = self.df.columns[self.df.dtypes=='category']
+        cont =  self.df.columns[self.df.dtypes=='float64']
+        #first continuous
+        fig, axs = plt.subplots(nrows=1,ncols=len(cont),sharey=True)
+        for ax,col in zip(axs.flat, cont):
+            sns.regplot(x=col,y=self.y,data=self.df,ax=ax)
+#        g = sns.lmplot(x="total_bill", y=self.y, data=self.df)
+        #then categorical
+        
+        fig, axs = plt.subplots(nrows=1,ncols=len(cat),sharey=True)
+        for ax,col in zip(axs.flat, cat):
+            sns.violinplot(x=col,y=self.y,data=self.df,ax=ax)
+            
+#        g = sns.FacetGrid(self.df,col=self.df.columns[self.df.dtypes=='category'],row=self.y,sharey=True)
+#        g.map(sns.violinplot)
+        return fig
         
     def linreg(self):
         '''Uses statsmodels OLS for linear regression. Automatically inserts constant'''
@@ -303,6 +312,8 @@ class Regression(Unsupervised):
         
     def plot_residuals(self):
         self.log.append('plot_residuals')
+        #sns.residplot 
+#        https://stanford.edu/~mwaskom/software/seaborn/generated/seaborn.residplot.html
     
     def heteroscedacity_check(self):
         self.log.append('')
@@ -323,24 +334,26 @@ class Timeseries:
         '''
 
 if __name__ == '__main__':
-    from sklearn.datasets import make_classification
-
-    x, y = make_classification(n_features=10, n_samples=1000, n_informative=5,
-                               n_clusters_per_class=3, n_redundant=0, hypercube=True, flip_y=.5)
-    x = pd.DataFrame(x)
-    bc = Classification(x,y)
-#    l = pd.read_csv('../deprivationProject/licwData.csv')
-#    l = l.drop(u'Unnamed: 0', axis=1)
-#    l = l.drop(0, axis=0)
-    d = pd.read_csv('../deprivationProject/deprivationColumn').True
-    c = Classification(l, d)
-    bc.reduce_dimensions()
-    bc.plot_kdes()
+#    from sklearn.datasets import make_classification
+#
+#    x, y = make_classification(n_features=10, n_samples=1000, n_informative=5,
+#                               n_clusters_per_class=3, n_redundant=0, hypercube=True, flip_y=.5)
+#    x = pd.DataFrame(x)
+#    bc = Classification(x,y)
+##    l = pd.read_csv('../deprivationProject/licwData.csv')
+##    l = l.drop(u'Unnamed: 0', axis=1)
+##    l = l.drop(0, axis=0)
+#    d = pd.read_csv('../deprivationProject/deprivationColumn').True
+#    c = Classification(l, d)
+#    bc.reduce_dimensions()
+#    bc.plot_kdes()
 #    bc.plot_predictions()
 
     from bokeh.sampledata.autompg import autompg
-    a=Unsupervised(autompg)
+    a=Regression(autompg,'mpg')
 
-
-    from bokeh.sampledata.iris import flowers
-    f=Classification(flowers,y='species')
+    titanic = sns.load_dataset("titanic")
+    t=Regression(titanic,'fare')
+    
+    iris = sns.load_dataset("iris")
+#    sns.pairplot(iris)
