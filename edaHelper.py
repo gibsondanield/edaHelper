@@ -67,16 +67,16 @@ def cat_cont_time(df):
     '''returns lists of which variables are categorical, continuous or temporal in df
     O(n) runtime where n is number of columns in df'''
     cat, cont, time = [],[],[]
+#    print '.....................'
     for col in df.columns:
+#        print col
         if df[col].dtype==float or df[col].dtype==int:
             cont.append(col)
-            return
-        try:
-            if df[col].dtype==['category','bool']:
-                cat.append(col)
-        except:
-            pass
-        if df[col].dtype in ['datetime64[ns]','<M8[ns]']: #https://docs.scipy.org/doc/numpy/reference/arrays.datetime.html
+
+        elif str(df[col].dtype) in ['category','bool']:
+            cat.append(col)
+#            print col
+        elif str(df[col].dtype) in ['datetime64[ns]','<M8[ns]']: #https://docs.scipy.org/doc/numpy/reference/arrays.datetime.html
             time.append(col)
             
     return cat, cont, time
@@ -227,15 +227,16 @@ class Unsupervised(object):
         '''picks unique values from categorigal variables that only have unique values'''
         cat, cont, time = cat_cont_time(self.df)#[self.vars_of_interest]
         if cat:
-            self.only=[]
+            self.only_list=[]
             for col in cat:
                 for value in set(self.df[col].unique()):
                     dummydf=self.df[self.df[col]==value].drop(col,axis=1)
                     for col2 in dummydf.columns:
                         val2=set(dummydf[col2])
                         if len(val2)==1:
-                            self.only.append('%s in column %s only has value %s in column %s' % (value, col,val2,col2)) 
-            print self.only
+                            self.only_list.append('%s in column %s only has value %s in column %s' % (value, col,val2,col2)) 
+            for i in self.only_list:
+                print i
 
 
 class Classification(Unsupervised):
