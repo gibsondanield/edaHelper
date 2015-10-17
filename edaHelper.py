@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-The aim of this programme is to automate the initial steps of exploratory data analysis (EDA) in an effort to help the .
+The aim of this programme is to automate some common tasks in exploratory data analysis (EDA) in an effort to help the .
 The goal is insight rather than intelligence; the user must know the caveats of each of the methods implemented here.
 
 Created on Thu Sep 10 16:52:07 2015
@@ -51,8 +51,8 @@ def recreate_df(df, x, columns):
         df[col]=x.T[i]
     return df
 
-def add_const(numpy_ndarray):
-    return np.hstack((numpy_ndarray,np.ones((len(numpy_ndarray),1))))
+def add_const(numpy_ndarray,const=1):
+    return np.hstack((numpy_ndarray,np.ones((len(numpy_ndarray),const))))
 
 def drop_singulars(df):
     '''Iterates through dataframe dropping columns with only one value. Returns dataframe'''
@@ -62,7 +62,24 @@ def drop_singulars(df):
             df=df.drop(col,axis=1)
             dropped.append(col)
     return df,dropped
-    
+
+def cat_cont_time(df):
+    '''returns lists of which variables are categorical, continuous or temporal in df
+    O(n) runtime where n is number of columns in df'''
+    cat, cont, time = [],[],[]
+    for col in df.columns:
+        if df[col].dtype==float or df[col].dtype==int:
+            cont.append(col)
+            return
+        try:
+            if df[col].dtype==['category','bool']:
+                cat.append(col)
+        except:
+            pass
+        if df[col].dtype in ['datetime64[ns]','<M8[ns]']: #https://docs.scipy.org/doc/numpy/reference/arrays.datetime.html
+            time.append(col)
+            
+    return cat, cont, time
 
 class Unsupervised(object):
     '''Input 'clean' dataset with anytimestamps conderted to pandas datetimeindex.
@@ -74,9 +91,9 @@ class Unsupervised(object):
         self.processes = processes
         self.pool = Pool(processes=processes)
         self.log = ['Initialized object']
-        self.chosen_columns = self.df.columns
+        self.vars_of_interest= self.df.columns
         
-    def normalize(which_subset='train',**kwargs):
+    def normalize(which_subset='train',**kwargs): #integrate this with everything else using pipeline?%matp
         '''Uses StandardScaler'''
         self.log.append('normalize')
         if which_subset=='train':
@@ -92,8 +109,8 @@ class Unsupervised(object):
             except:
                 print 'Test data not available. Run train_test_split'
         elif which_subest == 'all':
-            self.sc_te=StandardScaler(**kwargs)
-            self.sc_train.fit(self.df)
+            self.sc_all=StandardScaler(**kwargs)
+            self.sc_all.fit(self.df)
             
             
     def make_dummy_variables(drop_original=True,**kwargs):
@@ -177,13 +194,13 @@ class Unsupervised(object):
         self.log.append('column_to_vec')
         
         
-    def reduce_dimensions(self, ndim=3, methods=['tSVD'], classifier=None, plot2d=True, plot3d=False, whiten=True):
-        '''To fit or to fit trainsform, that is the question'''
-        self.log.append('reduce_dimensions(ndim= %s , methods=%s, classifier=%s, plot2d=%s, plot3d=%s)' %(ndim,methods,classifier,plot2d,plot3d))
+    def reduce_dimensions(self, ndim=3, objects=['tSVD'], classifier=None, plot2d=True, plot3d=False, whiten=True): #fix this as per other modeling methods
+        '''uses fit method on whichever objects are specified'''
+        self.log.append('reduce_dimensions(ndim= %s , objects=%s, classifier=%s, plot2d=%s, plot3d=%s)' %(ndim,methods,classifier,plot2d,plot3d))
         self.ndim = ndim
 
         clf = self.rf
-        if 'tSVD' in methods:
+        if 'tSVD' in objects:
             # plot scree
 
             # transform
@@ -198,23 +215,44 @@ class Unsupervised(object):
             self.Pca = PCA(n_components=ndim,whiten=whiten)
             self.Pca.fit(self.df)
 
-    def cluster(self, methods=['kmeans']):
+    def cluster(self, objects=['kmeans']):
         self.log.append('cluster')
         
 
     def plot_clusters(self):
         self.log.append('plot clusters')
+        
+    def only(self):
+        
+        '''picks unique values from categorigal variables that only have unique values'''
+        cat, cont, time = cat_cont_time(self.df)#[self.vars_of_interest]
+        if cat:
+            self.only=[]
+            for col in cat:
+                for value in set(self.df[col].unique()):
+                    dummydf=self.df[self.df[col]==value].drop(col,axis=1)
+                    for col2 in dummydf.columns:
+                        val2=set(dummydf[col2])
+                        if len(val2)==1:
+                            self.only.append('%s in column %s only has value %s in column %s' % (value, col,val2,col2)) 
+            print self.only
 
 
 class Classification(Unsupervised):
 
-    def __init__(self, x, y, processes=4):
+    def __init__(self, x, y, models=[RandomForestClassifier,SVC], processes=4):
         super(Classification, self).__init__(x, y, processes)
         self.rf = RandomForestClassifier(class_weight='auto')
         self.rf.fit(self.df, self.df[y])
         self.n_classes =  len(set(y))
+        self.models = models
 #        self.clustering_methods = [kmeans, kNN]
 #        self.dim_reduc_methods = [SVD, PCA]
+	def fit(self,**kwargs):
+		self.fit_models = []
+		for model in self.models:
+			self.fitted_models.append(model(**kwargs).fit(self.df[self.vars_of_interest],df[self.y]))
+
 
     def plot_kdes(self, bandwidth=.4, n_features=9, alpha=.10):
         '''Uses various methods (RF feature importance, Two-tailed hypothesis testing) to identify variables of potential interest and plot them using a kde. Bandwith may be changed but defaults to ?. P-values are shown for two-tailed hypothesis test'''
@@ -241,7 +279,9 @@ class Classification(Unsupervised):
 
     def plot_rocs(self):
         self.log.append('plot_rocs()')
-        
+        for model in self.fitted_models:
+        	#model.predict_proba
+            pass
 
     def plot_decision_tree(self, max_splits):
         '''http://scikit-learn.org/stable/modules/tree.html'''
@@ -281,15 +321,22 @@ class Classification(Unsupervised):
 
 class Regression(Unsupervised):
 
-    def __init__(self, x, y, processes=4):
+    def __init__(self, x, y, models=[RandomForestRegressor,SVR],processes=4):
         super(Regression, self).__init__(x, y, processes)
+        self.models = models
+        
+
+    def fit(self,**kwargs):
+		self.fit_models = []
+		for model in self.models:
+			self.fitted_models.append(model(**kwargs).fit(self.df[self.vars_of_interest],df[self.y]))
 
     def plot_against_y(self,function=None):
         '''Where colour is squared error or some other var'''
         #do linked plots here
-
-        cat = self.df.columns[self.df.dtypes=='category']
-        cont =  self.df.columns[self.df.dtypes=='float64']
+        cat, cont, time = cat_cont_time(self.df[self.vars_of_interest])
+#        cat = self.df.columns[self.df.dtypes=='category']
+#        cont =  self.df.columns[self.df.dtypes=='float64']
         #first continuous
         fig, axs = plt.subplots(nrows=1,ncols=len(cont),sharey=True)
         for ax,col in zip(axs.flat, cont):
@@ -307,8 +354,8 @@ class Regression(Unsupervised):
         
     def linreg(self):
         '''Uses statsmodels OLS for linear regression. Automatically inserts constant'''
-        x=add_const(x)
-        lm = sm.OLS(endog=ytrain,exog=xtrain,hasconst=1).fit()
+        lm = sm.OLS(endog=ytrain,exog=add_const(self.df[self.vars_of_interest]),hasconst=1).fit()
+        print lm.summary2()
         
     def plot_residuals(self):
         self.log.append('plot_residuals')
@@ -321,17 +368,9 @@ class Regression(Unsupervised):
     def anova(self):
         self.log.append('anova')
 
-class Timeseries:
-    
 
-    def plot():
-        '''Plots:
-        Different Bands of timeseries
-        FFT abs
-        periodogram
-        autocovariance
 
-        '''
+        
 
 if __name__ == '__main__':
 #    from sklearn.datasets import make_classification
