@@ -391,9 +391,15 @@ if __name__ == '__main__':
 
     from bokeh.sampledata.autompg import autompg
     a=Regression(autompg,'mpg')
+    a.categorize()
+    a.only()
 
     titanic = sns.load_dataset("titanic")
     t=Regression(titanic,'fare')
+    t.categorize()
     
     iris = sns.load_dataset("iris")
+    i=Unsupervised(iris)
+    i.categorize()
+    i.only()
 #    sns.pairplot(iris)
