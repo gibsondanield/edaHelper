@@ -240,9 +240,7 @@ class Unsupervised(object):
                 print i
                 
     def corr_graph(self):
-#        self.Corr_graph=nx.from_numpy_matrix(self.df.corr().values)
-#        nx.draw(self.Corr_graph)
-        
+        '''Find different graph database'''
         self.Corr_graph=nx.Graph()
         for i,v in enumerate(self.df.corr().columns):
             self.Corr_graph.add_node(v)
