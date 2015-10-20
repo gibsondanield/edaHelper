@@ -41,6 +41,7 @@ import statsmodels.formula.api as smf
 from statsmodels.nonparametric.kernel_density import KDEMultivariate
 from bokeh.charts import Scatter, show
 import seaborn as sns
+import networkx as nx
 
 def strip_col_names(df,append=''):
     '''makes all columns available as attributes. checks for redundancy and appends append variable to redunant names'''
@@ -237,8 +238,19 @@ class Unsupervised(object):
                             self.only_list.append('%s in column %s only has value %s in column %s' % (value, col,val2,col2)) 
             for i in self.only_list:
                 print i
-
-
+                
+    def corr_graph(self):
+#        self.Corr_graph=nx.from_numpy_matrix(self.df.corr().values)
+#        nx.draw(self.Corr_graph)
+        
+        self.Corr_graph=nx.Graph()
+        for i,v in enumerate(self.df.corr().columns):
+            self.Corr_graph.add_node(v)
+            for j,w in enumerate(self.df.corr().columns[i+1:]):
+                print j,w,self.df.corr().values[i][j+1]
+                self.Corr_graph.add_edge(v,w,weight=self.df.corr().values[i][j+1])
+        nx.draw(self.Corr_graph)
+        
 class Classification(Unsupervised):
 
     def __init__(self, x, y, models=[RandomForestClassifier,SVC], processes=4):
@@ -305,7 +317,6 @@ class Classification(Unsupervised):
         self.log.append('plot3D_predictions')
         self.models = models
         self.svc_kernels = ["linear", "rbf"]
-        scplt.binary(self.df, self.df[y], self.rf.predict(self.df))
 
     def plot2d_predictions(self):
         self.log.append('plot2d_predictions()')
@@ -330,7 +341,7 @@ class Regression(Unsupervised):
     def fit(self,**kwargs):
 		self.fit_models = []
 		for model in self.models:
-			self.fitted_models.append(model(**kwargs).fit(self.df[self.vars_of_interest],df[self.y]))
+			self.fitted_models.append(model(**kwargs).fit(self.df[self.vars_of_interest],self.df[self.y]))
 
     def plot_against_y(self,function=None):
         '''Where colour is squared error or some other var'''
