@@ -254,7 +254,7 @@ class Classification(Unsupervised):
     def __init__(self, x, y, models=[RandomForestClassifier,SVC], processes=4):
         super(Classification, self).__init__(x, y, processes)
         self.rf = RandomForestClassifier(class_weight='auto')
-        self.rf.fit(self.df, self.df[y])
+#        self.rf.fit(self.df, self.df[y])
         self.n_classes =  len(set(y))
         self.models = models
 #        self.clustering_methods = [kmeans, kNN]
@@ -269,7 +269,7 @@ class Classification(Unsupervised):
         '''Uses various methods (RF feature importance, Two-tailed hypothesis testing) to identify variables of potential interest and plot them using a kde. Bandwith may be changed but defaults to ?. P-values are shown for two-tailed hypothesis test'''
         self.log.append('plot_kdes')        
         # run random forest to get feature importance
-        features = self.rf.feature_importances_.argsort()[:n_features]
+        features = self.rf.feature_importances_.argsort()[:n_features] # http://www.statistik.uni-dortmund.de/useR-2008/slides/Strobl+Zeileis.pdf
         self.rf_importances = zip(self.df.columns,self.rf.feature_importances_[features])
         plt.figure()
         for i, v in enumerate(self.df.columns):
