@@ -92,9 +92,9 @@ class Unsupervised(object):
         self.processes = processes
         self.pool = Pool(processes=processes)
         self.log = ['Initialized object']
-        self.vars_of_interest= self.df.columns
+        self.vars_of_interest= self.df.columns[self.df.columns!=self.y]
         
-    def normalize(which_subset='train',**kwargs): #integrate this with everything else using pipeline?%matp
+    def normalize(self,which_subset='train',**kwargs): #integrate this with everything else using pipeline?%matp
         '''Uses StandardScaler'''
         self.log.append('normalize')
         if which_subset=='train':
@@ -109,16 +109,16 @@ class Unsupervised(object):
                 self.sc_test.fit(self.df_test)
             except:
                 print 'Test data not available. Run train_test_split'
-        elif which_subest == 'all':
+        elif which_subset == 'all':
             self.sc_all=StandardScaler(**kwargs)
             self.sc_all.fit(self.df)
             
             
-    def make_dummy_variables(drop_original=True,**kwargs):
+    def make_dummy_variables(self,drop_original=True,**kwargs):
         #Loop over nominal variables.
-        for variable in filter(lambda q: self.varTypes[q]=='categorical',
-                               self.varTypes.keys()):
-     
+#        for variable in filter(lambda q: self.varTypes[q]=='categorical',
+#                               self.varTypes.keys()):
+        for variable in self.df[self.df[self.vars_of_interest].dtypes=='category']:
             #First we create the columns with dummy variables.
             #Note that the argument 'prefix' means the column names will be
             #prefix_value for each unique value in the original column, so
@@ -127,15 +127,17 @@ class Unsupervised(object):
      
             #Remove old variable from dictionary.
             if drop_original:
-                self.varTypes.pop(variable)
-     
+                self.df.pop(variable)
+                self.vars_of_interest=self.vars_of_interest[self.vars_of_interest!=variable]
+            self.vars_of_interest.append(df.col)
             #Add new dummy variables to dictionary.
-            for dummy_variable in dummy_df.columns:
-                self.varTypes[dummy_variable] = 'Binary'
+#            for dummy_variable in dummy_df.columns:
+#                self.varTypes[dummy_variable] = 'Binary'
      
             #Add dummy variables to main df.
-            self.df=self.df.drop(variable, axis=1)
+#            self.df=self.df.drop(variable, axis=1)
             self.df=self.df.join(dummy_df)
+            self.categorize()
     
             
     def train_test_split(n_xval_folds=5,holdout=0):
@@ -253,16 +255,20 @@ class Classification(Unsupervised):
 
     def __init__(self, x, y, models=[RandomForestClassifier,SVC], processes=4):
         super(Classification, self).__init__(x, y, processes)
+<<<<<<< HEAD
         self.rf = RandomForestClassifier(class_weight='auto')
+=======
+#        self.rf = RandomForestClassifier(class_weight='auto')
+>>>>>>> b674978eab294ef3ba51c09eaea3a93ccbe74339
 #        self.rf.fit(self.df, self.df[y])
         self.n_classes =  len(set(y))
         self.models = models
 #        self.clustering_methods = [kmeans, kNN]
 #        self.dim_reduc_methods = [SVD, PCA]
-	def fit(self,**kwargs):
+    def fit(self,**kwargs):
 		self.fit_models = []
 		for model in self.models:
-			self.fitted_models.append(model(**kwargs).fit(self.df[self.vars_of_interest],df[self.y]))
+			self.fitted_models.append(model(**kwargs).fit(self.df[self.vars_of_interest],df[[self.y]]))
 
 
     def plot_kdes(self, bandwidth=.4, n_features=9, alpha=.10):
@@ -294,10 +300,13 @@ class Classification(Unsupervised):
         	#model.predict_proba
             pass
 
-    def plot_decision_tree(self, max_splits):
+    def plot_decision_tree(self, **kwargs):
         '''http://scikit-learn.org/stable/modules/tree.html'''
         self.log.append('plot_decision_tree')
-
+        self.dtree = DecisionTreeClassifier(**kwargs)
+        self.dtree.fit(self.df[self.vars_of_interest],self.df[self.y])
+        
+        
     def plot2d_gridsearch_heatmap():
         '''http://scikit-learn.org/stable/auto_examples/svm/plot_rbf_parameters.html'''
         self.log.append('plot2d_gridsearch_heatmap')
@@ -404,7 +413,7 @@ if __name__ == '__main__':
     a.only()
 
     titanic = sns.load_dataset("titanic")
-    t=Regression(titanic,'fare')
+    t=Classification(titanic,'survived')
     t.categorize()
     
     iris = sns.load_dataset("iris")
