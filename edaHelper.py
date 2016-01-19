@@ -221,6 +221,11 @@ class Unsupervised(object):
     def cluster(self, objects=['kmeans']):
         self.log.append('cluster')
         
+    def cov_cat(self):
+        '''See http://arxiv.org/pdf/0711.4452.pdf
+        https://en.wikipedia.org/wiki/List_of_analyses_of_categorical_data'''
+        self.log.append('cov_cat()')
+        
 
     def plot_clusters(self):
         self.log.append('plot clusters')
@@ -250,16 +255,21 @@ class Unsupervised(object):
                 print j,w,self.df.corr().values[i][j+1]
                 self.Corr_graph.add_edge(v,w,weight=self.df.corr().values[i][j+1])
         nx.draw(self.Corr_graph)
+
+    def significance_test(self):
+        ''' Runs ANOVA for nominal vs categorical,
+        chi2 for nominal vs nominal'''
+        self.log.append('')
         
 class Classification(Unsupervised):
 
     def __init__(self, x, y, models=[RandomForestClassifier,SVC], processes=4):
         super(Classification, self).__init__(x, y, processes)
-<<<<<<< HEAD
+
         self.rf = RandomForestClassifier(class_weight='auto')
-=======
+
 #        self.rf = RandomForestClassifier(class_weight='auto')
->>>>>>> b674978eab294ef3ba51c09eaea3a93ccbe74339
+
 #        self.rf.fit(self.df, self.df[y])
         self.n_classes =  len(set(y))
         self.models = models
@@ -381,11 +391,8 @@ class Regression(Unsupervised):
         #sns.residplot 
 #        https://stanford.edu/~mwaskom/software/seaborn/generated/seaborn.residplot.html
     
-    def heteroscedacity_check(self):
-        self.log.append('')
 
-    def anova(self):
-        self.log.append('anova')
+
 
 
 
