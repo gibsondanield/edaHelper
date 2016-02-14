@@ -35,9 +35,9 @@ from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.cross_validation import train_test_split
 from sklearn.svm import SVR
-#import scatterplot as scplt
+
 from sklearn_pandas import DataFrameMapper, cross_val_score
-#statsmodels imports
+
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from statsmodels.nonparametric.kernel_density import KDEMultivariate
@@ -94,7 +94,7 @@ class Unsupervised(object):
         self.processes = processes
         self.verbose = verbose
         self.pool = Pool(processes=processes)
-        self.log = ['Initialized object']
+        self.log = ['Initialized object'] #look into logging module
         self.vars_of_interest= self.df.columns[self.df.columns!=self.y]
         
     def normalize(self,which_subset='train',**kwargs): #integrate this with everything else using pipeline?%matp
@@ -298,12 +298,12 @@ class Unsupervised(object):
                 
                 column_fraction = self.df[self.df[target_var]==True][col].value_counts().values/map(float,self.df[col].value_counts().values)
                 chi_2 = chisquare(column_fraction,[target_proportion for _ in column_fraction])
-                               
+                
                 if self.verbose:
                     print col, 'column fraction = ', column_fraction
                     print 'chi_2 = ', chi_2
                 self.chi_2_results[col]=chi_2
-                
+        return self.chi_2_results.values()
             
         
         
