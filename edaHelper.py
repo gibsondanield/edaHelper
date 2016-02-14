@@ -9,6 +9,8 @@ Created on Thu Sep 10 16:52:07 2015
 """
 #import threading
 from multiprocessing import Pool
+import sys
+from scipy.stats import chisquare
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -33,7 +35,7 @@ from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.cross_validation import train_test_split
 from sklearn.svm import SVR
-import scatterplot as scplt
+#import scatterplot as scplt
 from sklearn_pandas import DataFrameMapper, cross_val_score
 #statsmodels imports
 import statsmodels.api as sm
@@ -85,11 +87,12 @@ def cat_cont_time(df):
 class Unsupervised(object):
     '''Input 'clean' dataset with anytimestamps conderted to pandas datetimeindex.
     Uses fit methods on objects as opposed to fit_transform.'''
-    def __init__(self, df, y=None, processes=4):
+    def __init__(self, df, y=None, processes=4, verbose=True):
 
         self.df = pd.DataFrame(df)
         self.y = y 
         self.processes = processes
+        self.verbose = verbose
         self.pool = Pool(processes=processes)
         self.log = ['Initialized object']
         self.vars_of_interest= self.df.columns[self.df.columns!=self.y]
@@ -115,29 +118,34 @@ class Unsupervised(object):
             
             
     def make_dummy_variables(self,drop_original=True,**kwargs):
-        #Loop over nominal variables.
-#        for variable in filter(lambda q: self.varTypes[q]=='categorical',
-#                               self.varTypes.keys()):
-        for variable in self.df[self.df[self.vars_of_interest].dtypes=='category']:
-            #First we create the columns with dummy variables.
-            #Note that the argument 'prefix' means the column names will be
-            #prefix_value for each unique value in the original column, so
-            #we set the prefix to be the name of the original variable.
-            dummy_df=pd.get_dummies(self.df[variable], prefix=variable,**kwargs)
-     
-            #Remove old variable from dictionary.
-            if drop_original:
-                self.df.pop(variable)
-                self.vars_of_interest=self.vars_of_interest[self.vars_of_interest!=variable]
-            self.vars_of_interest.append(df.col)
-            #Add new dummy variables to dictionary.
-#            for dummy_variable in dummy_df.columns:
-#                self.varTypes[dummy_variable] = 'Binary'
-     
-            #Add dummy variables to main df.
-#            self.df=self.df.drop(variable, axis=1)
-            self.df=self.df.join(dummy_df)
-            self.categorize()
+        #find some way of dealing with NaN        
+        print self.vars_of_interest
+        categorical_vars=self.df.dtypes.index[self.df.dtypes=='category']
+        for variable in set(categorical_vars).intersection(set(self.vars_of_interest)):
+            print self.df[variable]
+            sys.stdout.flush()
+            if self.df[variable].dtype=='category':
+                if self.verbose:
+                    print 'making dummy variables for: ', variable
+                #First we create the columns with dummy variables.
+                #Note that the argument 'prefix' means the column names will be
+                #prefix_value for each unique value in the original column, so
+                #we set the prefix to be the name of the original variable.
+                dummy_df=pd.get_dummies(self.df[variable], prefix=variable,**kwargs)
+         
+                #Remove old variable from dictionary.
+                if drop_original:
+                    self.df.pop(variable)
+                    self.vars_of_interest=self.vars_of_interest[self.vars_of_interest!=variable]
+                #self.vars_of_interest.append(df.col)
+                #Add new dummy variables to dictionary.
+    #            for dummy_variable in dummy_df.columns:
+    #                self.varTypes[dummy_variable] = 'Binary'
+         
+                #Add dummy variables to main df.
+    #            self.df=self.df.drop(variable, axis=1)
+                self.df=self.df.join(dummy_df)
+        self.categorize()
     
             
     def train_test_split(n_xval_folds=5,holdout=0):
@@ -255,11 +263,51 @@ class Unsupervised(object):
                 print j,w,self.df.corr().values[i][j+1]
                 self.Corr_graph.add_edge(v,w,weight=self.df.corr().values[i][j+1])
         nx.draw(self.Corr_graph)
-
-    def significance_test(self):
-        ''' Runs ANOVA for nominal vs categorical,
-        chi2 for nominal vs nominal'''
+        
+    def compute_class_balances(self):
+        '''Calculates relitaive proportion of each class for categorical (including boolean) variables.
+        Creates self.class_balances which is a dictionary where each variable is a key, each value is a dictionary where the name of the class is the key and the proportion is its value''
+        '''
+        self.class_balances=dict()
+        
+        pass
+    def _return_categorical_and_boolean_columns(self):
+        cols = self.df.dtypes.index[self.df.dtypes==bool].append(self.df.dtypes.index[self.df.dtypes=='category'])
+        try:
+            cols.drop(self.y)
+        except:
+            pass
+        if self.verbose:
+            print '_return_categorical_and_boolean_columns:'
+            print cols
+        return cols
+        
+    def significance_test(self, target_var=None, p=.05, multivariate_correction=None):
+        
+        ''' Runs chi2 on categorical and boolean variables'''
         self.log.append('')
+        
+        if target_var==None:
+            target_var=self.y
+            
+        columns=self._return_categorical_and_boolean_columns()
+        if self.df[target_var].dtype == bool:
+            target_proportion=sum(self.df[target_var]==1)/float(len(self.df[target_var]))
+            self.chi_2_results={}
+            for col in columns:
+                
+                column_fraction = self.df[self.df[target_var]==True][col].value_counts().values/map(float,self.df[col].value_counts().values)
+                chi_2 = chisquare(column_fraction,[target_proportion for _ in column_fraction])
+                               
+                if self.verbose:
+                    print col, 'column fraction = ', column_fraction
+                    print 'chi_2 = ', chi_2
+                self.chi_2_results[col]=chi_2
+                
+            
+        
+        
+        
         
 class Classification(Unsupervised):
 
@@ -271,7 +319,7 @@ class Classification(Unsupervised):
 #        self.rf = RandomForestClassifier(class_weight='auto')
 
 #        self.rf.fit(self.df, self.df[y])
-        self.n_classes =  len(set(y))
+        self.n_classes =  len(set(self.df[self.y]))
         self.models = models
 #        self.clustering_methods = [kmeans, kNN]
 #        self.dim_reduc_methods = [SVD, PCA]
@@ -344,7 +392,7 @@ class Classification(Unsupervised):
     def max_profit(self, cost_benefit_matrix):
         self.log.append('max_profit')
 
-    def print_class_proportions():
+    def hist_class_proportions():
         print y.value_counts()
         plt.hist(y)
 
