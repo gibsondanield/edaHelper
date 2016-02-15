@@ -177,9 +177,9 @@ class Unsupervised(object):
 #                    self.df[col]=self.df[col].astype(bool)
 
         print self.df.info()
-    def plot_all(self,cols=None):
+    def plot_all(self,cols=None,palette="Greens_d"):
         if cols==None:
-            cols=self.df.columns
+            cols=self.vars_of_interest
         for k,i in enumerate(cols):
             for j in cols[k:]:
                 if i==j:
@@ -188,7 +188,7 @@ class Unsupervised(object):
                 elif str(self.df[j].dtype) in ['category','bool']:
                     if str(self.df[i].dtype) in ['category','bool']:
                         plt.figure()
-                        sns.countplot(x=i,hue=j,data=self.df,palette="Greens_d")
+                        sns.countplot(x=i,hue=j,data=self.df,palette=palette)
                     elif str(self.df[i].dtype) in ['int','float64']:
                         plt.figure()
                         sns.violinplot(x=i,y=j,data=self.df)
@@ -222,7 +222,7 @@ class Unsupervised(object):
 #               scplt.binary(self.tData.T[0],self.tData.T[1],None,twoD=plot2d, threeD=plot3d) include transform
             # plot transformed data with labels
             # print component values
-        if 'PCA' in methods:
+        if 'PCA' in objects:
             self.Pca = PCA(n_components=ndim,whiten=whiten)
             self.Pca.fit(self.df)
 
@@ -290,7 +290,6 @@ class Unsupervised(object):
         if target_var==None:
             target_var=self.y
             
-        columns=self._return_categorical_and_boolean_columns()
         if self.df[target_var].dtype == bool:
             target_proportion=sum(self.df[target_var]==1)/float(len(self.df[target_var]))
             self.chi_2_results={}
