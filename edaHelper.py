@@ -109,7 +109,10 @@ class Unsupervised(object):
         self.log = ['Initialized object']  # look into logging module
         self.vars_of_interest = self.df.columns[self.df.columns != self.y]
 
+
     def set_vars_of_interest(self,columns=None):
+        '''sets vars_of_intetest to specified values. Defaults to non-objects.
+        columns is list-like'''
         if columns==None:
             self.df.dtypes.index[self.df.dtypes != 'object']
         else:
@@ -166,8 +169,10 @@ class Unsupervised(object):
 
                 self.df = self.df.join(dummy_df)
                 self.vars_of_interest=self.vars_of_interest.append(dummy_df.columns)
-        self.categorize(max_unique_vars=2)
+        #self.categorize(max_unique_vars=2)
 
+    def convert_for_statsmodels(self):
+        pass
 
     def train_test_split(self, n_xval_folds=5, holdout=0):
         '''Splits data into test and training sets. Holdout is the proportion of data to be kept in the holdout set'''
@@ -337,6 +342,7 @@ class Unsupervised(object):
             target_proportion = sum(
                 self.df[target_var] == 1) / float(self.df[target_var].size)
             self.chi_2_results = {}
+            columns=self._return_categorical_and_boolean_columns()
             for col in columns:
                 column_fraction = self.df[self.df[target_var]][col].value_counts(
                 ).values / map(float, self.df[col].value_counts().values)
@@ -351,7 +357,7 @@ class Unsupervised(object):
 
 
 class Classification(Unsupervised):
-
+    '''Needs Docstring'''
     def __init__(self, x, y, models=[
                  RandomForestClassifier, SVC], processes=4):
         super(Classification, self).__init__(x, y, processes)
