@@ -12,6 +12,7 @@ from multiprocessing import Pool
 import sys
 from scipy.stats import chisquare
 import numpy as np
+import scipy as sp
 import pandas as pd
 import matplotlib.pyplot as plt
 from IPython.core.magics import logging
@@ -36,11 +37,11 @@ from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.cross_validation import train_test_split
 from sklearn.svm import SVR
-from sklearn_pandas import DataFrameMapper, cross_val_score
+#from sklearn_pandas import DataFrameMapper, cross_val_score
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from statsmodels.nonparametric.kernel_density import KDEMultivariate
-from bokeh.charts import Scatter, show
+#from bokeh.charts import Scatter, show
 import seaborn as sns
 import networkx as nx
 
@@ -90,6 +91,48 @@ def cat_cont_time(df):
     return cat, cont, time
 
 
+def make_appropriate_plot(
+        x_name,
+        y_name,
+        df,
+        categorical_var=None,
+        continuous_var=None,
+        palette='Greens_d'):
+    '''if x_name and y_name are the same, will plot a histogram or KDE'''
+    print str(df[x_name].dtype)
+
+    if x_name == y_name:
+        if str(df[y_name].dtype) in ['category', 'bool']:
+            # plot histogram of count of each category
+            plt.figure()
+            sns.distplot(df[y_name], kde=False)
+        elif str(df[y_name].dtype) in ['int', 'float64']:
+            plt.figure()
+            # label
+            # sns.distplot(self.df[j],hist=False,label=j)
+            sns.kdeplot(data=df[y_name])
+    elif 'datetime' in str(df[x_name].dtype):
+        print 'datetime'
+        plt.figure()
+        df[[x_name, y_name]].plot()
+    elif str(df[y_name].dtype) in ['category', 'bool']:
+        if str(df[x_name].dtype) in ['category', 'bool']:
+            plt.figure()
+            sns.countplot(x=x_name, hue=y_name, data=df,
+                          palette=palette)
+        elif str(df[x_name].dtype) in ['int', 'float64']:
+            plt.figure()
+            sns.violinplot(x=x_name, y=y_name, data=df)
+    elif str(df[y_name].dtype) in ['int', 'float64']:
+        if str(df[x_name].dtype) in ['category', 'bool']:
+            plt.figure()
+            sns.boxplot(x=x_name, y=y_name, data=df)
+        elif str(df[x_name].dtype) in ['int', 'float64']:
+            plt.figure()
+            # include lin reg and colours/shapes for categories
+            sns.jointplot(x=x_name, y=y_name, data=df)
+
+
 class Unsupervised(object):
     '''df is PANDAS data frame,
     y is name of target variable (string),
@@ -109,17 +152,15 @@ class Unsupervised(object):
         self.log = ['Initialized object']  # look into logging module
         self.vars_of_interest = self.df.columns[self.df.columns != self.y]
 
-
-    def set_vars_of_interest(self,columns=None):
+    def set_vars_of_interest(self, columns=None):
         '''sets vars_of_intetest to specified values. Defaults to non-objects.
         columns is list-like'''
-        if columns==None:
+        if columns is None:
             self.df.dtypes.index[self.df.dtypes != 'object']
         else:
-            self.vars_of_interest=pd.Index(columns)
+            self.vars_of_interest = pd.Index(columns)
         if self.verbose:
             print 'vars_of_interest set to: ', self.vars_of_interest
-
 
     # integrate this with everything else using pipeline?%matp
     def normalize(self, which_subset='train', **kwargs):
@@ -141,14 +182,17 @@ class Unsupervised(object):
             self.sc_all = StandardScaler(**kwargs)
             self.sc_all.fit(self.df)
 
-    def make_dummy_variables(self, drop_original=True,delimiter='_',dummy_na=False, **kwargs):
+    def make_dummy_variables(
+            self,
+            drop_original=True,
+            delimiter='_',
+            dummy_na=False,
+            **kwargs):
         # find some way of dealing with NaN
         print self.vars_of_interest
         categorical_vars = self.df.dtypes.index[self.df.dtypes == 'category']
         for variable in set(categorical_vars).intersection(
                 set(self.vars_of_interest)):
-            #print self.df[variable]
-            #sys.stdout.flush()
             if self.df[variable].dtype == 'category':
                 if self.verbose:
                     print 'making dummy variables for: ', variable
@@ -157,21 +201,27 @@ class Unsupervised(object):
                 # prefix_value for each unique value in the original column, so
                 # we set the prefix to be the name of the original variable.
                 dummy_df = pd.get_dummies(
-                    self.df[variable], prefix=variable, dummy_na=dummy_na,**kwargs)
+                    self.df[variable],
+                    prefix=variable,
+                    dummy_na=dummy_na,
+                    **kwargs)
                 if self.verbose:
                     print variable, ' has value ', dummy_df.columns[0], ' when ', dummy_df.columns[1:].values, 'equal zero'
-                dummy_df=dummy_df.drop(dummy_df.columns[0],axis=1)
+                dummy_df = dummy_df.drop(dummy_df.columns[0], axis=1)
 
                 # Remove old variable from dictionary.
                 if drop_original:
                     self.df.pop(variable)
-                    self.vars_of_interest=self.vars_of_interest.drop(variable)
+                    self.vars_of_interest = self.vars_of_interest.drop(
+                        variable)
 
                 self.df = self.df.join(dummy_df)
-                self.vars_of_interest=self.vars_of_interest.append(dummy_df.columns)
-        #self.categorize(max_unique_vars=2)
+                self.vars_of_interest = self.vars_of_interest.append(
+                    dummy_df.columns)
+        # self.categorize(max_unique_vars=2)
 
     def convert_for_statsmodels(self):
+        '''Convert to float'''
         pass
 
     def train_test_split(self, n_xval_folds=5, holdout=0):
@@ -187,56 +237,39 @@ class Unsupervised(object):
         if n_xval_folds:
             pass
 
-
     def categorize(self, max_unique_vars=10):
         '''distinguish categorical variables from continuous. only int and float64 are considered continuous variables'''
-
         self.log.append('categorize')
-#        self.varTypes = {}
         for col in self.df.columns:
-            #            print self.df[col].dtype
             if self.df[col].dtype in ['object', 'float64', 'int']:
                 n = self.df[col].unique().size
                 if self.verbose:
                     print col, 'has ', n, ' unique values'
-                if n==2: #convert to bool
-                    self.df[col]=self.df[col].astype(bool)
+                if n == 2:  # convert to bool
+                    self.df[col] = self.df[col].astype(bool)
                 elif n <= max_unique_vars:
                     self.df[col] = self.df[col].astype('category')
+        if self.verbose:
+            print self.df.info()
 
-
-        print self.df.info()
-
-
-    def plot_all(self, cols=None,limit=10, palette="Greens_d"):
+    def plot_all(
+            self,
+            cols=None,
+            prioritization_method='correlation',
+            limit=10,
+            palette="Greens_d"):
+        '''correlation, mutual information'''
         if cols is None:
             cols = self.vars_of_interest
+
         for k, i in enumerate(cols[:limit]):
             for j in cols[k:]:
-                if i == j:
-                    if str(self.df[j].dtype) in ['category', 'bool']:
-                        pass
-                elif str(self.df[j].dtype) in ['category', 'bool']:
-                    if str(self.df[i].dtype) in ['category', 'bool']:
-                        plt.figure()
-                        sns.countplot(x=i, hue=j, data=self.df,
-                                      palette=palette)
-                    elif str(self.df[i].dtype) in ['int', 'float64']:
-                        plt.figure()
-                        sns.violinplot(x=i, y=j, data=self.df)
-                elif str(self.df[j].dtype) in ['int', 'float64']:
-                    if str(self.df[i].dtype) in ['category', 'bool']:
-                        plt.figure()
-                        sns.boxplot(x=i, y=j, data=self.df)
-                    elif str(self.df[i].dtype) in ['int', 'float64']:
-                        plt.figure()
-                        sns.jointplot(x=i, y=j, data=self.df)  # fit lin reg???
+                print 'plotting', k, i, j
+                make_appropriate_plot(i, j, self.df, palette)
 
-
-    def column_to_vec(self, **kwargs):
+    def tfidf_convert(self, column_name, **kwargs):
         '''Converts all text data to tfidf vectors'''
-        self.log.append('column_to_vec')
-
+        self.log.append('tfidf')
 
     # fix this as per other modeling methods
     def reduce_dimensions(
@@ -269,10 +302,8 @@ class Unsupervised(object):
             self.Pca = PCA(n_components=ndim, whiten=whiten)
             self.Pca.fit(self.df)
 
-
     def cluster(self, objects=['kmeans']):
         self.log.append('cluster')
-
 
     def cov_cat(self):
         '''See http://arxiv.org/pdf/0711.4452.pdf
@@ -310,14 +341,6 @@ class Unsupervised(object):
                     v, w, weight=self.df.corr().values[i][j + 1])
         nx.draw(self.Corr_graph)
 
-    def compute_class_balances(self):
-        '''Calculates relitaive proportion of each class for categorical (including boolean) variables.
-        Creates self.class_balances which is a dictionary where each variable is a key, each value is a dictionary where the name of the class is the key and the proportion is its value''
-        '''
-        self.class_balances = dict()
-
-        pass
-
     def _return_categorical_and_boolean_columns(self):
         cols = self.df.dtypes.index[self.df.dtypes == bool].append(
             self.df.dtypes.index[self.df.dtypes == 'category'])
@@ -342,7 +365,7 @@ class Unsupervised(object):
             target_proportion = sum(
                 self.df[target_var] == 1) / float(self.df[target_var].size)
             self.chi_2_results = {}
-            columns=self._return_categorical_and_boolean_columns()
+            columns = self._return_categorical_and_boolean_columns()
             for col in columns:
                 column_fraction = self.df[self.df[target_var]][col].value_counts(
                 ).values / map(float, self.df[col].value_counts().values)
@@ -355,9 +378,37 @@ class Unsupervised(object):
                 self.chi_2_results[col] = chi_2
         return self.chi_2_results.values()
 
+    def plot_against_(
+            self,
+            variable,
+            use_vars_of_interest=True,
+            limit=50,
+            **appropriate_plot_kwargs):
+        '''Creates plots of every variable against the input variable'''
+        if use_vars_of_interest:
+            for feature in self.vars_of_interest:
+                make_appropriate_plot(
+                    feature, variable, self.df, **appropriate_plot_kwargs)
+        else:
+            for feature in self.df.columns[:limit]:
+                make_appropriate_plot(
+                    feature, variable, self.df, **appropriate_plot_kwargs)
+
+    def dCorr(self, features=None):
+        '''scipy correlation function is returning values greater than 1'''
+        if features is None:
+            features = self.vars_of_interest
+        l = len(features)
+        arr = np.empty((l, l))
+        arr[np.triu_indices(l, 1)] = sp.spatial.distance.pdist(
+            self.df[features].values.T, 'correlation')
+        self.correlation_distance = pd.DataFrame(
+            arr, index=features, columns=features)
+
 
 class Classification(Unsupervised):
     '''Needs Docstring'''
+
     def __init__(self, x, y, models=[
                  RandomForestClassifier, SVC], processes=4):
         super(Classification, self).__init__(x, y, processes)
@@ -366,35 +417,11 @@ class Classification(Unsupervised):
         self.n_classes = self.df[self.y].unique().size
         self.models = models
 
-
     def fit(self, **kwargs):
         self.fit_models = []
         for model in self.models:
             self.fitted_models.append(
                 model(**kwargs).fit(self.df[self.vars_of_interest], df[[self.y]]))
-
-    def plot_kdes(self, bandwidth=.4, n_features=9, alpha=.10):
-        '''Uses various methods (RF feature importance, Two-tailed hypothesis testing) to identify variables of potential interest and plot them using a kde. Bandwith may be changed but defaults to ?. P-values are shown for two-tailed hypothesis test'''
-        self.log.append('plot_kdes')
-        # run random forest to get feature importance
-        # http://www.statistik.uni-dortmund.de/useR-2008/slides/Strobl+Zeileis.pdf
-        features = self.rf.feature_importances_.argsort()[:n_features]
-        self.rf_importances = zip(
-            self.df.columns, self.rf.feature_importances_[features])
-        plt.figure()
-        for i, v in enumerate(self.df.columns):
-            plt.subplot(n_features / 3 + 1, 3, i)
-#             print type(self.df)
-            plt.plot(kde_statsmodels_m(self.df[self.df[y]][v], np.linspace(
-                0, 12, 2000), bandwidth=bandwidth), label='True ' + v)
-            plt.plot(
-                kde_statsmodels_m(
-                    self.df[map(lambda x: not x, self.df[y])][v],
-                    np.linspace(0, 12, 2000),
-                    bandwidth=bandwidth),
-                label='False ' + v)
-        plt.legend(loc=0)
-        plt.tight_layout()
 
     def classify(self, grid_density=.02, holdout_set=False, n_folds=5):
         self.log.append('classify')
@@ -440,7 +467,10 @@ class Classification(Unsupervised):
         self.models = models
         self.svc_kernels = ["linear", "rbf"]
 
-    def plot2d_predictions(self, plot_decision_boundary=True, decision_boundary_method='mean'):
+    def plot2d_predictions(
+            self,
+            plot_decision_boundary=True,
+            decision_boundary_method='mean'):
         self.log.append('plot2d_predictions()')
 
     def compare_model_performance(self):
@@ -498,8 +528,8 @@ class Regression(Unsupervised):
         # sns.residplot
 #        https://stanford.edu/~mwaskom/software/seaborn/generated/seaborn.residplot.html
 
-LM=logging.LoggingMagics()
-#LM.logstart()
+LM = logging.LoggingMagics()
+# LM.logstart()
 
 if __name__ == '__main__':
     #    from sklearn.datasets import make_classification
@@ -508,18 +538,11 @@ if __name__ == '__main__':
     #                               n_clusters_per_class=3, n_redundant=0, hypercube=True, flip_y=.5)
     #    x = pd.DataFrame(x)
     #    bc = Classification(x,y)
-    ##    l = pd.read_csv('../deprivationProject/licwData.csv')
-    ##    l = l.drop(u'Unnamed: 0', axis=1)
-    ##    l = l.drop(0, axis=0)
-    #    d = pd.read_csv('../deprivationProject/deprivationColumn').True
-    #    c = Classification(l, d)
-    #    bc.reduce_dimensions()
-    #    bc.plot_kdes()
-    #    bc.plot_predictions()
 
     from bokeh.sampledata.autompg import autompg
     a = Regression(autompg, 'mpg')
     a.categorize()
+    a.vars_of_interest = a.vars_of_interest.drop('name')
     a.only()
 
     titanic = sns.load_dataset("titanic")
@@ -532,3 +555,9 @@ if __name__ == '__main__':
     i.categorize()
     i.only()
 #    sns.pairplot(iris)
+    gammas = sns.load_dataset("gammas")
+    x = np.linspace(0, 15, 310)
+    data = np.sin(x)
+    fake_ts = pd.DataFrame(data, columns=['sine'])
+    fake_ts['time'] = pd.DatetimeIndex(x)
+    make_appropriate_plot('time', 'sine', fake_ts)
