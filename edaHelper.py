@@ -44,11 +44,13 @@ from statsmodels.nonparametric.kernel_density import KDEMultivariate
 #from bokeh.charts import Scatter, show
 import seaborn as sns
 import networkx as nx
+import pprint
 
 
-def strip_col_names(df, append=''):
+def strip_col_names(df, suffix='',separator='_'):
     '''makes all columns available as attributes. checks for redundancy and appends append variable to redunant names'''
-    pass
+    df.columns = map(lambda s:s.replace(' ',separator),df.columns)
+    return df
 
 
 def recreate_df(df, x, columns):
@@ -375,6 +377,7 @@ class Unsupervised(object):
                 if self.verbose:
                     print col, 'column fraction = ', column_fraction
                     print 'chi_2 = ', chi_2
+                    pprint.pprint(chi_2)
                 self.chi_2_results[col] = chi_2
         return self.chi_2_results.values()
 
