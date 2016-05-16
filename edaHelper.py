@@ -8,7 +8,7 @@ Created on Thu Sep 10 16:52:07 2015
 @author: Daniel D. Gibson
 """
 #import threading
-from multiprocessing import Pool
+from multiprocessing import Pool, cpu_count
 import sys
 from scipy.stats import chisquare
 import numpy as np
@@ -46,10 +46,11 @@ import seaborn as sns
 import networkx as nx
 import pprint
 
+p=Pool(cpu_count())
 
 def strip_col_names(df, suffix='',separator='_'):
     '''makes all columns available as attributes. checks for redundancy and appends append variable to redunant names'''
-    df.columns = map(lambda s:s.replace(' ',separator),df.columns)
+    df.columns = p.map(lambda s:s.replace(' ',separator),df.columns)
     return df
 
 
@@ -59,7 +60,7 @@ def recreate_df(df, x, columns):
     return df
 
 
-def add_const(numpy_ndarray, const=1):
+def add_const(numpy_ndarray, const=1.0):
     return np.hstack((numpy_ndarray, np.ones((len(numpy_ndarray), const))))
 
 
@@ -97,43 +98,62 @@ def make_appropriate_plot(
         x_name,
         y_name,
         df,
+        z_name=None,
         categorical_var=None,
         continuous_var=None,
         palette='Greens_d'):
     '''if x_name and y_name are the same, will plot a histogram or KDE'''
-    print str(df[x_name].dtype)
-
-    if x_name == y_name:
-        if str(df[y_name].dtype) in ['category', 'bool']:
-            # plot histogram of count of each category
-            plt.figure()
-            sns.distplot(df[y_name], kde=False)
-        elif str(df[y_name].dtype) in ['int', 'float64']:
-            plt.figure()
-            # label
-            # sns.distplot(self.df[j],hist=False,label=j)
-            sns.kdeplot(data=df[y_name])
-    elif 'datetime' in str(df[x_name].dtype):
-        print 'datetime'
-        plt.figure()
-        df[[x_name, y_name]].plot()
-    elif str(df[y_name].dtype) in ['category', 'bool']:
-        if str(df[x_name].dtype) in ['category', 'bool']:
-            plt.figure()
-            sns.countplot(x=x_name, hue=y_name, data=df,
-                          palette=palette)
-        elif str(df[x_name].dtype) in ['int', 'float64']:
-            plt.figure()
-            sns.violinplot(x=x_name, y=y_name, data=df)
-    elif str(df[y_name].dtype) in ['int', 'float64']:
-        if str(df[x_name].dtype) in ['category', 'bool']:
-            plt.figure()
-            sns.boxplot(x=x_name, y=y_name, data=df)
-        elif str(df[x_name].dtype) in ['int', 'float64']:
-            plt.figure()
-            # include lin reg and colours/shapes for categories
-            sns.jointplot(x=x_name, y=y_name, data=df)
-
+    x_dtype, y_dtype = df[x_name].dtype.name, df[y_name].dtype.name
+    print x_dtype, ' vs. ', y_dtype
+    plt.figure()
+    if z_name==None:
+        plt.title(x_dtype + ' vs. ' + y_dtype)
+        if x_name == y_name:
+    #        sns.kdeplot(data=df[y_name])
+            if  y_dtype in ['category', 'bool']:
+                # plot histogram of count of each category
+                try:
+                    sns.distplot(df[y_name], kde=False)
+                except:
+                    print 'error, ',x_name
+            elif  y_dtype in ['int', 'float64']:
+                # label
+                # sns.distplot(self.df[j],hist=False,label=j)
+                try:
+                    sns.kdeplot(data=df[y_name])
+                except:
+                    print 'error, ',x_name
+        elif 'datetime' in str(df[x_name].dtype):
+            print 'datetime'
+            df[[x_name, y_name]].plot()
+        elif  y_dtype in ['category', 'bool']:
+            if x_dtype in ['category', 'bool']:
+                sns.countplot(x=x_name, hue=y_name, data=df,
+                              palette=palette)
+            elif x_dtype in ['int', 'float64']:
+                if  y_dtype == 'category':
+                    sns.violinplot(x=x_name, y=y_name, data=df)
+                else:
+                    sns.violinplot(x=y_name, y=x_name, data=df,split=True,orient="V")
+        elif  y_dtype in ['int', 'float64']:
+            if x_dtype in ['category', 'bool']:
+                sns.boxplot(x=x_name, y=y_name, data=df)
+            elif x_dtype in ['int', 'float64']:
+                # include lin reg and colours/shapes for categories
+                sns.jointplot(x=x_name, y=y_name, data=df)#,stat_func=sns.stats.entropy)#lambda x,y:sp.spatial.distance.pdist(zip(x,y), 'correlation'))
+    else:
+        z_dtype= df[z_name].dtype.name
+        print x_dtype, ' vs. ', y_dtype, ' vs. ', z_dtype
+        plt.title(x_dtype + ' vs. ' + y_dtype + ' vs. ' + z_dtype)
+        '''
+        let's start out assuming there is a continuous var for x. if not continuous, switch with y
+        '''
+        if x_dtype in ['int', 'float64']:
+            if y_dtype in ['int', 'float64']:
+                if z_dtype in ['category', 'bool']:
+                    sns.lmplot(x_name, y_name, data=df, hue=z_name)
+                if z_dtype in ['int', 'float64']:
+                    plt.scatter(df[x_name],df[y_name],c=df[z_name],cmap='spectral')
 
 class Unsupervised(object):
     '''df is PANDAS data frame,
@@ -243,7 +263,7 @@ class Unsupervised(object):
         '''distinguish categorical variables from continuous. only int and float64 are considered continuous variables'''
         self.log.append('categorize')
         for col in self.df.columns:
-            if self.df[col].dtype in ['object', 'float64', 'int']:
+            if self.df[col].dtype in ['object', 'float', 'int']:
                 n = self.df[col].unique().size
                 if self.verbose:
                     print col, 'has ', n, ' unique values'
@@ -270,7 +290,7 @@ class Unsupervised(object):
                 make_appropriate_plot(i, j, self.df, palette)
 
     def tfidf_convert(self, column_name, **kwargs):
-        '''Converts all text data to tfidf vectors'''
+        '''Converts all text data to tfidf vectors, updates vars_of_interest with new columns'''
         self.log.append('tfidf')
 
     # fix this as per other modeling methods
@@ -370,7 +390,7 @@ class Unsupervised(object):
             columns = self._return_categorical_and_boolean_columns()
             for col in columns:
                 column_fraction = self.df[self.df[target_var]][col].value_counts(
-                ).values / map(float, self.df[col].value_counts().values)
+                ).values / p.map(float, self.df[col].value_counts().values)
                 chi_2 = chisquare(column_fraction, [
                                   target_proportion for _ in column_fraction])
 
@@ -408,9 +428,12 @@ class Unsupervised(object):
         self.correlation_distance = pd.DataFrame(
             arr, index=features, columns=features)
 
+    def pursuit_curve(self):
+        pass
+
 
 class Classification(Unsupervised):
-    '''Needs Docstring'''
+    '''Classification object inherits from unsupervised object. Use with binary dependent variable'''
 
     def __init__(self, x, y, models=[
                  RandomForestClassifier, SVC], processes=4):
@@ -472,9 +495,15 @@ class Classification(Unsupervised):
 
     def plot2d_predictions(
             self,
+            limit=20,
             plot_decision_boundary=True,
             decision_boundary_method='mean'):
         self.log.append('plot2d_predictions()')
+        #plot continuous variables
+
+        #plot categorical and boolean
+
+        #
 
     def compare_model_performance(self):
         self.log.append('compare_model_performance()')
@@ -551,7 +580,7 @@ if __name__ == '__main__':
     titanic = sns.load_dataset("titanic")
     t = Classification(titanic, 'survived')
     t.categorize()
-    t.make_dummy_variables()
+    #t.make_dummy_variables()
 
     iris = sns.load_dataset("iris")
     i = Unsupervised(iris)
