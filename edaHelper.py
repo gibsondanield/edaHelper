@@ -93,6 +93,7 @@ def cat_cont_time(df):
 
     return cat, cont, time
 
+continuous = ['int','int32','int64','float','float64']
 
 def make_appropriate_plot(
         x_name,
@@ -101,12 +102,14 @@ def make_appropriate_plot(
         z_name=None,
         categorical_var=None,
         continuous_var=None,
-        palette='Greens_d'):
+        palette='Greens_d',
+        context='talk'):
     '''if x_name and y_name are the same, will plot a histogram or KDE'''
     x_dtype, y_dtype = df[x_name].dtype.name, df[y_name].dtype.name
-    print x_dtype, ' vs. ', y_dtype
-    plt.figure()
+    sns.set_context(context)
+    #plt.figure()
     if z_name==None:
+        print x_dtype, ' vs. ', y_dtype
         plt.title(x_dtype + ' vs. ' + y_dtype)
         if x_name == y_name:
     #        sns.kdeplot(data=df[y_name])
@@ -116,7 +119,7 @@ def make_appropriate_plot(
                     sns.distplot(df[y_name], kde=False)
                 except:
                     print 'error, ',x_name
-            elif  y_dtype in ['int', 'float64']:
+            elif  y_dtype in ['int64', 'float64']:
                 # label
                 # sns.distplot(self.df[j],hist=False,label=j)
                 try:
@@ -130,30 +133,37 @@ def make_appropriate_plot(
             if x_dtype in ['category', 'bool']:
                 sns.countplot(x=x_name, hue=y_name, data=df,
                               palette=palette)
-            elif x_dtype in ['int', 'float64']:
+                #or sns.clustermap
+            elif x_dtype in ['int64', 'float64']:
                 if  y_dtype == 'category':
                     sns.violinplot(x=x_name, y=y_name, data=df)
                 else:
                     sns.violinplot(x=y_name, y=x_name, data=df,split=True,orient="V")
-        elif  y_dtype in ['int', 'float64']:
+        elif  y_dtype in ['int64', 'float64']:
             if x_dtype in ['category', 'bool']:
                 sns.boxplot(x=x_name, y=y_name, data=df)
-            elif x_dtype in ['int', 'float64']:
+            elif x_dtype in ['int64', 'float64']:
                 # include lin reg and colours/shapes for categories
                 sns.jointplot(x=x_name, y=y_name, data=df)#,stat_func=sns.stats.entropy)#lambda x,y:sp.spatial.distance.pdist(zip(x,y), 'correlation'))
     else:
         z_dtype= df[z_name].dtype.name
         print x_dtype, ' vs. ', y_dtype, ' vs. ', z_dtype
-        plt.title(x_dtype + ' vs. ' + y_dtype + ' vs. ' + z_dtype)
+
         '''
         let's start out assuming there is a continuous var for x. if not continuous, switch with y
         '''
-        if x_dtype in ['int', 'float64']:
-            if y_dtype in ['int', 'float64']:
+        if x_dtype in ['int64', 'float64']:
+            if y_dtype in ['int64', 'float64']:
                 if z_dtype in ['category', 'bool']:
                     sns.lmplot(x_name, y_name, data=df, hue=z_name)
-                if z_dtype in ['int', 'float64']:
-                    plt.scatter(df[x_name],df[y_name],c=df[z_name],cmap='spectral')
+                if z_dtype in ['int64', 'float64']:
+                    plt.scatter(df[x_name],df[y_name],c=df[z_name],cmap='Greens')
+
+            if y_dtype in ['category', 'bool']:
+
+
+        plt.title(x_name+ ' vs. '+ y_name+ ' vs. '+ z_name+ ' | '+ x_dtype + ' vs. ' + y_dtype + ' vs. ' + z_dtype)
+
 
 class Unsupervised(object):
     '''df is PANDAS data frame,
@@ -592,4 +602,8 @@ if __name__ == '__main__':
     data = np.sin(x)
     fake_ts = pd.DataFrame(data, columns=['sine'])
     fake_ts['time'] = pd.DatetimeIndex(x)
-    make_appropriate_plot('time', 'sine', fake_ts)
+    #make_appropriate_plot('time', 'sine', fake_ts)
+    make_appropriate_plot('hp','displ',a.df,z_name='cyl')
+    plt.figure()
+    make_appropriate_plot('hp','displ',a.df,z_name='accel')
+
