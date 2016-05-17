@@ -46,7 +46,6 @@ import seaborn as sns
 import networkx as nx
 import pprint
 
-p=Pool(cpu_count())
 
 def strip_col_names(df, suffix='',separator='_'):
     '''makes all columns available as attributes. checks for redundancy and appends append variable to redunant names'''
@@ -73,7 +72,6 @@ def drop_singulars(df):
             dropped.append(col)
     return df, dropped
 
-
 def cat_cont_time(df):
     '''returns lists of which variables are categorical, continuous or temporal in df
     O(n) runtime where n is number of columns in df'''
@@ -92,20 +90,24 @@ def cat_cont_time(df):
             time.append(col)
 
     return cat, cont, time
-
-continuous = ['int','int32','int64','float','float64']
+    
+continuous = {int,float}
+categorical = {'category', np.dtype(bool)}
+temporal = {'datetime64[ns]', np.dtype('<M8[ns]')}
 
 def make_appropriate_plot(
         x_name,
         y_name,
         df,
         z_name=None,
-        categorical_var=None,
-        continuous_var=None,
+        ax=None,
         palette='Greens_d',
         context='talk'):
-    '''if x_name and y_name are the same, will plot a histogram or KDE'''
+    '''if x_name and y_name are the same, will plot a histogram or KDE
+    returns matplotlib axes'''
     x_dtype, y_dtype = df[x_name].dtype.name, df[y_name].dtype.name
+    if ax==None:
+        pass
     sns.set_context(context)
     #plt.figure()
     if z_name==None:
@@ -116,14 +118,14 @@ def make_appropriate_plot(
             if  y_dtype in ['category', 'bool']:
                 # plot histogram of count of each category
                 try:
-                    sns.distplot(df[y_name], kde=False)
+                    ax=sns.distplot(df[y_name], kde=False)
                 except:
                     print 'error, ',x_name
             elif  y_dtype in ['int64', 'float64']:
                 # label
                 # sns.distplot(self.df[j],hist=False,label=j)
                 try:
-                    sns.kdeplot(data=df[y_name])
+                    ax=sns.kdeplot(data=df[y_name])
                 except:
                     print 'error, ',x_name
         elif 'datetime' in str(df[x_name].dtype):
@@ -131,20 +133,20 @@ def make_appropriate_plot(
             df[[x_name, y_name]].plot()
         elif  y_dtype in ['category', 'bool']:
             if x_dtype in ['category', 'bool']:
-                sns.countplot(x=x_name, hue=y_name, data=df,
+                ax=sns.countplot(x=x_name, hue=y_name, data=df,
                               palette=palette)
                 #or sns.clustermap
             elif x_dtype in ['int64', 'float64']:
                 if  y_dtype == 'category':
-                    sns.violinplot(x=x_name, y=y_name, data=df)
+                    ax=sns.violinplot(x=x_name, y=y_name, data=df)
                 else:
-                    sns.violinplot(x=y_name, y=x_name, data=df,split=True,orient="V")
+                    ax=sns.violinplot(x=y_name, y=x_name, data=df,split=True,orient="V")
         elif  y_dtype in ['int64', 'float64']:
             if x_dtype in ['category', 'bool']:
-                sns.boxplot(x=x_name, y=y_name, data=df)
+                ax=sns.boxplot(x=x_name, y=y_name, data=df)
             elif x_dtype in ['int64', 'float64']:
                 # include lin reg and colours/shapes for categories
-                sns.jointplot(x=x_name, y=y_name, data=df)#,stat_func=sns.stats.entropy)#lambda x,y:sp.spatial.distance.pdist(zip(x,y), 'correlation'))
+                ax=sns.jointplot(x=x_name, y=y_name, data=df)#,stat_func=sns.stats.entropy)#lambda x,y:sp.spatial.distance.pdist(zip(x,y), 'correlation'))
     else:
         z_dtype= df[z_name].dtype.name
         print x_dtype, ' vs. ', y_dtype, ' vs. ', z_dtype
@@ -155,34 +157,34 @@ def make_appropriate_plot(
         if x_dtype in ['int64', 'float64']:
             if y_dtype in ['int64', 'float64']:
                 if z_dtype in ['category', 'bool']:
-                    sns.lmplot(x_name, y_name, data=df, hue=z_name)
+                    ax=sns.lmplot(x_name, y_name, data=df, hue=z_name)
                 if z_dtype in ['int64', 'float64']:
-                    plt.scatter(df[x_name],df[y_name],c=df[z_name],cmap='Greens')
+                    ax=plt.scatter(df[x_name],df[y_name],c=df[z_name],cmap='Greens')
 
             if y_dtype in ['category', 'bool']:
-
-
+                pass
         plt.title(x_name+ ' vs. '+ y_name+ ' vs. '+ z_name+ ' | '+ x_dtype + ' vs. ' + y_dtype + ' vs. ' + z_dtype)
-
+    return ax
 
 class Unsupervised(object):
     '''df is PANDAS data frame,
     y is name of target variable (string),
-    processes is number of cores for parallelization (int),
+    processes is number of cores for parallelization (int) (defaults to number of cores on machine),
     verbose prints intermediate steps in methods,
 
     Input 'clean' dataset with timestamps converted to pandas datetimeindex.
     '''
 
-    def __init__(self, df, y=None, processes=4, verbose=True):
+    def __init__(self, df, y=None, processes=None, verbose=True):
 
         self.df = pd.DataFrame(df)
         self.y = y
-        self.processes = processes
+        self.processes = processes if processes else cpu_count()
         self.verbose = verbose
         self.pool = Pool(processes=processes)
         self.log = ['Initialized object']  # look into logging module
         self.vars_of_interest = self.df.columns[self.df.columns != self.y]
+
 
     def set_vars_of_interest(self, columns=None):
         '''sets vars_of_intetest to specified values. Defaults to non-objects.
@@ -289,15 +291,17 @@ class Unsupervised(object):
             cols=None,
             prioritization_method='correlation',
             limit=10,
-            palette="Greens_d"):
+            **appropriate_plot_kwargs):
         '''correlation, mutual information'''
         if cols is None:
             cols = self.vars_of_interest
 
         for k, i in enumerate(cols[:limit]):
+            plt.figure()
             for j in cols[k:]:
                 print 'plotting', k, i, j
-                make_appropriate_plot(i, j, self.df, palette)
+                plt.subplot()
+                make_appropriate_plot(i, j, self.df, **appropriate_plot_kwargs)
 
     def tfidf_convert(self, column_name, **kwargs):
         '''Converts all text data to tfidf vectors, updates vars_of_interest with new columns'''
@@ -415,11 +419,15 @@ class Unsupervised(object):
             self,
             variable,
             use_vars_of_interest=True,
-            limit=50,
+            limit=10,
             **appropriate_plot_kwargs):
         '''Creates plots of every variable against the input variable'''
+        plt.figure()
+        
         if use_vars_of_interest:
-            for feature in self.vars_of_interest:
+            n_plots= len(self.vars_of_interest[:limit])-1
+            for i,feature in enumerate(self.vars_of_interest[:limit]):
+                ax=plt.subplot(1,n_plots,i)
                 make_appropriate_plot(
                     feature, variable, self.df, **appropriate_plot_kwargs)
         else:
@@ -446,8 +454,8 @@ class Classification(Unsupervised):
     '''Classification object inherits from unsupervised object. Use with binary dependent variable'''
 
     def __init__(self, x, y, models=[
-                 RandomForestClassifier, SVC], processes=4):
-        super(Classification, self).__init__(x, y, processes)
+                 RandomForestClassifier, SVC]):
+        super(Classification, self).__init__(x, y)
 
         self.rf = RandomForestClassifier(class_weight='auto')
         self.n_classes = self.df[self.y].unique().size
@@ -528,8 +536,8 @@ class Classification(Unsupervised):
 
 class Regression(Unsupervised):
 
-    def __init__(self, x, y, models=[RandomForestRegressor, SVR], processes=4):
-        super(Regression, self).__init__(x, y, processes)
+    def __init__(self, x, y, models=[RandomForestRegressor, SVR]):
+        super(Regression, self).__init__(x, y)
         self.models = models
 
     def fit(self, **kwargs):
@@ -603,7 +611,7 @@ if __name__ == '__main__':
     fake_ts = pd.DataFrame(data, columns=['sine'])
     fake_ts['time'] = pd.DatetimeIndex(x)
     #make_appropriate_plot('time', 'sine', fake_ts)
-    make_appropriate_plot('hp','displ',a.df,z_name='cyl')
-    plt.figure()
-    make_appropriate_plot('hp','displ',a.df,z_name='accel')
+#    make_appropriate_plot('hp','displ',a.df,z_name='cyl')
+#    plt.figure()
+#    make_appropriate_plot('hp','displ',a.df,z_name='accel')
 
