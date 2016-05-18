@@ -42,3 +42,30 @@ d['value']=r.tree_.value.flatten()
 d['impurity']=r.tree_.impurity
 tree_df=pd.DataFrame(d)
 print tree_df
+
+
+#try to navigate tree
+features,values,left_split=[],[],[]
+features.append(tree_df.ix[0].feature)
+values.append(tree_df.ix[0].value)
+left_split.append(None)
+
+
+class Tree(object):
+    def __init__(self,feature,root,leaf,parent,is_left,right_child,left_child,threshold):
+        self.feature=feature
+        self.is_root=root
+        self.is_leaf=leaf
+        self.parent=parent
+        self.is_left=is_left
+        self.right_child=right_child
+        self.left_child=left_child
+        self.threshold=threshold
+
+#t=Tree(None,True,False,None,None,None,None,None)
+for i in tree_df.iteritems()[0]:
+    print i
+
+def navigate_tree_df(df):
+    series=df.ix[0]
+    t=Tree(series.feature,True,False,None,None,Naviga)
