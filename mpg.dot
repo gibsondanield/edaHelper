@@ -35,7 +35,7 @@ node [shape=box] ;
 15 -> 16 ;
 17 [label="mse = 12.7809\nsamples = 38\nvalue = 20.6421"] ;
 15 -> 17 ;
-18 [label="yr <= 75.5\nmse = 4.7611\nsamples = 96\nvalue = 14.5187"] ;
+18 [label="yr <= 75.5\nmse = 4.7611\nsamples = 96\nvalue = 14.5188"] ;
 14 -> 18 ;
 19 [label="weight <= 4358.5\nmse = 3.077\nsamples = 68\nvalue = 13.7353"] ;
 18 -> 19 ;

@@ -90,7 +90,7 @@ def cat_cont_time(df):
             time.append(col)
 
     return cat, cont, time
-    
+
 continuous = {int,float}
 categorical = {'category', np.dtype(bool)}
 temporal = {'datetime64[ns]', np.dtype('<M8[ns]')}
@@ -100,6 +100,7 @@ def make_appropriate_plot(
         y_name,
         df,
         z_name=None,
+        title=None,
         ax=None,
         palette='Greens_d',
         context='talk'):
@@ -112,7 +113,10 @@ def make_appropriate_plot(
     #plt.figure()
     if z_name==None:
         print x_dtype, ' vs. ', y_dtype
-        plt.title(x_dtype + ' vs. ' + y_dtype)
+        if title:
+            plt.title(title)
+        else:
+            plt.title(x_dtype + ' vs. ' + y_dtype)
         if x_name == y_name:
     #        sns.kdeplot(data=df[y_name])
             if  y_dtype in ['category', 'bool']:
@@ -163,7 +167,10 @@ def make_appropriate_plot(
 
             if y_dtype in ['category', 'bool']:
                 pass
-        plt.title(x_name+ ' vs. '+ y_name+ ' vs. '+ z_name+ ' | '+ x_dtype + ' vs. ' + y_dtype + ' vs. ' + z_dtype)
+        if title:
+            plt.title(title)
+        else:
+            plt.title(x_name+ ' vs. '+ y_name+ ' vs. '+ z_name+ ' | '+ x_dtype + ' vs. ' + y_dtype + ' vs. ' + z_dtype)
     return ax
 
 class Unsupervised(object):
@@ -423,7 +430,7 @@ class Unsupervised(object):
             **appropriate_plot_kwargs):
         '''Creates plots of every variable against the input variable'''
         plt.figure()
-        
+
         if use_vars_of_interest:
             n_plots= len(self.vars_of_interest[:limit])-1
             for i,feature in enumerate(self.vars_of_interest[:limit]):
@@ -613,5 +620,5 @@ if __name__ == '__main__':
     #make_appropriate_plot('time', 'sine', fake_ts)
 #    make_appropriate_plot('hp','displ',a.df,z_name='cyl')
 #    plt.figure()
-#    make_appropriate_plot('hp','displ',a.df,z_name='accel')
+    make_appropriate_plot('hp','displ',a.df,z_name='accel')
 
