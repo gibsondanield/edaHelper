@@ -108,49 +108,56 @@ def make_appropriate_plot(
     returns matplotlib axes'''
     x_dtype, y_dtype = df[x_name].dtype.name, df[y_name].dtype.name
     if ax==None:
-        pass
+        plt.figure()
+        ax=plt.subplot()
+    sns.set_palette(palette)
     sns.set_context(context)
-    #plt.figure()
     if z_name==None:
         print x_dtype, ' vs. ', y_dtype
         if title:
             plt.title(title)
         else:
-            plt.title(x_dtype + ' vs. ' + y_dtype)
+            plt.title(x_name + ' vs. ' + y_name)
         if x_name == y_name:
     #        sns.kdeplot(data=df[y_name])
             if  y_dtype in ['category', 'bool']:
                 # plot histogram of count of each category
                 try:
-                    ax=sns.distplot(df[y_name], kde=False)
+                    sns.distplot(df[y_name], kde=False,ax=ax)
                 except:
                     print 'error, ',x_name
+                    print sys.exc_info()
             elif  y_dtype in ['int64', 'float64']:
                 # label
                 # sns.distplot(self.df[j],hist=False,label=j)
                 try:
-                    ax=sns.kdeplot(data=df[y_name])
+                    sns.kdeplot(data=df[y_name],ax=ax,vertical=True)
                 except:
                     print 'error, ',x_name
+                    print sys.exc_info()
         elif 'datetime' in str(df[x_name].dtype):
             print 'datetime'
             df[[x_name, y_name]].plot()
         elif  y_dtype in ['category', 'bool']:
             if x_dtype in ['category', 'bool']:
-                ax=sns.countplot(x=x_name, hue=y_name, data=df,
-                              palette=palette)
+                sns.countplot(x=x_name, hue=y_name, data=df,
+                              palette=palette,ax=ax)
                 #or sns.clustermap
             elif x_dtype in ['int64', 'float64']:
                 if  y_dtype == 'category':
-                    ax=sns.violinplot(x=x_name, y=y_name, data=df)
+                    sns.violinplot(x=x_name, y=y_name, data=df,ax=ax)
                 else:
-                    ax=sns.violinplot(x=y_name, y=x_name, data=df,split=True,orient="V")
+                    sns.violinplot(x=y_name, y=x_name, data=df,split=True,orient="V",ax=ax)
         elif  y_dtype in ['int64', 'float64']:
             if x_dtype in ['category', 'bool']:
-                ax=sns.boxplot(x=x_name, y=y_name, data=df)
+                sns.boxplot(x=x_name, y=y_name, data=df,ax=ax)
             elif x_dtype in ['int64', 'float64']:
                 # include lin reg and colours/shapes for categories
-                ax=sns.jointplot(x=x_name, y=y_name, data=df)#,stat_func=sns.stats.entropy)#lambda x,y:sp.spatial.distance.pdist(zip(x,y), 'correlation'))
+                try:
+                    sns.regplot(x=x_name, y=y_name, data=df,ax=ax,fit_reg=False)#,stat_func=sns.stats.entropy)#lambda x,y:sp.spatial.distance.pdist(zip(x,y), 'correlation'))
+                except:
+                    print 'jointplot error '
+                    print sys.exc_info()
     else:
         z_dtype= df[z_name].dtype.name
         print x_dtype, ' vs. ', y_dtype, ' vs. ', z_dtype
@@ -161,9 +168,9 @@ def make_appropriate_plot(
         if x_dtype in ['int64', 'float64']:
             if y_dtype in ['int64', 'float64']:
                 if z_dtype in ['category', 'bool']:
-                    ax=sns.lmplot(x_name, y_name, data=df, hue=z_name)
+                    sns.lmplot(x_name, y_name, data=df, hue=z_name)
                 if z_dtype in ['int64', 'float64']:
-                    ax=plt.scatter(df[x_name],df[y_name],c=df[z_name],cmap='Greens')
+                    plt.scatter(df[x_name],df[y_name],c=df[z_name],cmap='Greens')
 
             if y_dtype in ['category', 'bool']:
                 pass
@@ -299,16 +306,19 @@ class Unsupervised(object):
             prioritization_method='correlation',
             limit=10,
             **appropriate_plot_kwargs):
-        '''correlation, mutual information'''
+        '''
+        if cols=None, plots vars_of_interest
+        prioritizations: correlation, mutual information'''
+
         if cols is None:
             cols = self.vars_of_interest
 
         for k, i in enumerate(cols[:limit]):
-            plt.figure()
+            plt.figure(k)
             for j in cols[k:]:
                 print 'plotting', k, i, j
-                plt.subplot()
-                make_appropriate_plot(i, j, self.df, **appropriate_plot_kwargs)
+                ax=plt.subplot()
+                make_appropriate_plot(i, j, self.df, ax=ax,**appropriate_plot_kwargs)
 
     def tfidf_convert(self, column_name, **kwargs):
         '''Converts all text data to tfidf vectors, updates vars_of_interest with new columns'''
@@ -425,22 +435,29 @@ class Unsupervised(object):
     def plot_against_(
             self,
             variable,
+            dependent=True,
             use_vars_of_interest=True,
             limit=10,
             **appropriate_plot_kwargs):
         '''Creates plots of every variable against the input variable'''
-        plt.figure()
+        #plt.figure()
 
         if use_vars_of_interest:
-            n_plots= len(self.vars_of_interest[:limit])-1
-            for i,feature in enumerate(self.vars_of_interest[:limit]):
-                ax=plt.subplot(1,n_plots,i)
-                make_appropriate_plot(
-                    feature, variable, self.df, **appropriate_plot_kwargs)
+            cols=self.vars_of_interest[:limit]
         else:
-            for feature in self.df.columns[:limit]:
+            cols=self.df.columns[:limit]
+        n_plots= len(cols)-1
+        if dependent:
+            fig, axs = plt.subplots(nrows=1, ncols=n_plots, sharey=True)
+        else:
+            fig, axs = plt.subplots(nrows=n_plots, ncols=1, sharey=True)
+            for ax, col in zip(axs.flat, cols):
+
                 make_appropriate_plot(
-                    feature, variable, self.df, **appropriate_plot_kwargs)
+                    col, variable, self.df,ax=ax, **appropriate_plot_kwargs)
+
+
+
 
     def dCorr(self, features=None):
         '''scipy correlation function is returning values greater than 1'''
@@ -553,23 +570,33 @@ class Regression(Unsupervised):
             self.fitted_models.append(
                 model(**kwargs).fit(self.df[self.vars_of_interest], self.df[self.y]))
 
-    def plot_against_y(self, function=None):
+    def plot_against_y(self, function=None,y_margin=.1,lim=10,context='talk'):
         '''Where colour is squared error or some other var'''
         # do linked plots here
         cat, cont, time = cat_cont_time(self.df[self.vars_of_interest])
 #        cat = self.df.columns[self.df.dtypes=='category']
 #        cont =  self.df.columns[self.df.dtypes=='float64']
         # first continuous
-        fig, axs = plt.subplots(nrows=1, ncols=len(cont), sharey=True)
-        for ax, col in zip(axs.flat, cont):
-            sns.regplot(x=col, y=self.y, data=self.df, ax=ax)
+        cols=cat+cont+time
+        cols=cols[:10]
+        sns.set_context(context)
+        fig, axs = plt.subplots(nrows=1, ncols=len(cols), sharey=True)
+        for ax, col in zip(axs.flat, cols):
+            if col in cont:
+                sns.regplot(x=col, y=self.y, data=self.df, ax=ax)
 #        g = sns.lmplot(x="total_bill", y=self.y, data=self.df)
         # then categorical
 
-        fig, axs = plt.subplots(nrows=1, ncols=len(cat), sharey=True)
-        for ax, col in zip(axs.flat, cat):
-            sns.violinplot(x=col, y=self.y, data=self.df, ax=ax)
-
+        #fig, axs = plt.subplots(nrows=1, ncols=len(cat), sharey=True)
+        #for ax, col in zip(axs.flat, cat):
+            elif col in cat:
+                sns.violinplot(x=col, y=self.y, data=self.df, ax=ax)
+            else:
+                #plot timeseries
+                self.df([self.y,col]).plot()
+        y_min,y_max=self.df[self.y].min(),(self.df[self.y].max())
+        y_range=y_max-y_min
+        plt.ylim(y_min-y_margin*y_range,y_max+y_margin*y_range)
 #        g = sns.FacetGrid(self.df,col=self.df.columns[self.df.dtypes=='category'],row=self.y,sharey=True)
 #        g.map(sns.violinplot)
         return fig
@@ -620,5 +647,5 @@ if __name__ == '__main__':
     #make_appropriate_plot('time', 'sine', fake_ts)
 #    make_appropriate_plot('hp','displ',a.df,z_name='cyl')
 #    plt.figure()
-    make_appropriate_plot('hp','displ',a.df,z_name='accel')
+    #ax=make_appropriate_plot('hp','displ',a.df,z_name='accel')
 
