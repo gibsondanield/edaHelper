@@ -108,7 +108,7 @@ def make_appropriate_plot(
     returns matplotlib axes'''
     x_dtype, y_dtype = df[x_name].dtype.name, df[y_name].dtype.name
     if ax==None:
-        plt.figure()
+        #plt.figure()
         ax=plt.subplot()
     sns.set_palette(palette)
     sns.set_context(context)
@@ -446,17 +446,16 @@ class Unsupervised(object):
             cols=self.vars_of_interest[:limit]
         else:
             cols=self.df.columns[:limit]
-        n_plots= len(cols)-1
+        n_plots= len(cols)
         if dependent:
             fig, axs = plt.subplots(nrows=1, ncols=n_plots, sharey=True)
         else:
-            fig, axs = plt.subplots(nrows=n_plots, ncols=1, sharey=True)
-            for ax, col in zip(axs.flat, cols):
-
-                make_appropriate_plot(
-                    col, variable, self.df,ax=ax, **appropriate_plot_kwargs)
-
-
+            fig, axs = plt.subplots(nrows=n_plots, ncols=1, sharex=True)
+        for ax, col in zip(axs.flat, cols):
+            make_appropriate_plot(
+                col, variable, self.df,ax=ax, **appropriate_plot_kwargs)
+        plt.title(variable + 'vs. all')
+        return plt
 
 
     def dCorr(self, features=None):
@@ -644,7 +643,7 @@ if __name__ == '__main__':
     data = np.sin(x)
     fake_ts = pd.DataFrame(data, columns=['sine'])
     fake_ts['time'] = pd.DatetimeIndex(x)
-    #make_appropriate_plot('time', 'sine', fake_ts)
+#    make_appropriate_plot('time', 'sine', fake_ts)
 #    make_appropriate_plot('hp','displ',a.df,z_name='cyl')
 #    plt.figure()
     #ax=make_appropriate_plot('hp','displ',a.df,z_name='accel')
