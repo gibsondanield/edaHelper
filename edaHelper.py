@@ -37,6 +37,7 @@ from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.cross_validation import train_test_split
 from sklearn.svm import SVR
+from sklearn.metrics import normalized_mutual_info_score
 #from sklearn_pandas import DataFrameMapper, cross_val_score
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
@@ -458,7 +459,7 @@ class Unsupervised(object):
         return plt
 
 
-    def dCorr(self, features=None):
+    def make_dCorr_matrix(self, features=None):
         '''scipy correlation function is returning values greater than 1'''
         if features is None:
             features = self.vars_of_interest
@@ -468,6 +469,27 @@ class Unsupervised(object):
             self.df[features].values.T, 'correlation')
         self.correlation_distance = pd.DataFrame(
             arr, index=features, columns=features)
+
+    def make_NMI_matrix(self,features=None):
+        if features is None:
+            #features = self.vars_of_interest
+            features=self.df.columns
+        #make dummy vars without dropping?
+        l = len(features)
+        arr = np.empty((l, l))
+        arr.fill(np.nan)
+        for i,series in enumerate(self.df[features].iteritems()):
+            for j,series2 in enumerate(self.df[features[i:]].iteritems()):
+                #print i,j+i,series[0],series2[0]
+                try:
+                    arr[i,j+i] = normalized_mutual_info_score(series[1],series2[1])
+                    #print arr[j,i]
+                except:
+                    #print 'except' + str(series) + str(series2)
+                    arr[j,i]=-1
+                    #print sys.exc_info()
+        self.normalized_mutual_information = pd.DataFrame(
+            arr.T, index=features, columns=features)
 
     def pursuit_curve(self):
         pass
