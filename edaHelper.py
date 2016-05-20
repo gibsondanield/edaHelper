@@ -20,11 +20,9 @@ from IPython.core.magics import logging
 #from matplotlib.colors import ListedColormap
 from sklearn.cross_validation import train_test_split, KFold
 from sklearn.preprocessing import StandardScaler
-from sklearn.datasets import make_moons, make_circles, make_classification
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.svm import SVC
+#from sklearn.datasets import make_moons, make_circles, make_classification
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.lda import LDA
 from sklearn.qda import QDA
 from sklearn.decomposition import TruncatedSVD, PCA
@@ -213,7 +211,7 @@ class Unsupervised(object):
         self.y = y
         self.processes = processes if processes else cpu_count()
         self.verbose = verbose
-        self.pool = Pool(processes=processes)
+        #self.pool = Pool(processes=processes)
         self.log = ['Initialized object']  # look into logging module
         self.vars_of_interest = self.df.columns[self.df.columns != self.y]
 
@@ -461,7 +459,7 @@ class Unsupervised(object):
         '''Creates plots of every variable against the input variable'''
         #plt.figure()
 
-        cols= _return_features(features)[:limit]
+        cols= self.return_features(features)[:limit]
         n_plots= len(cols)
         if dependent:
             fig, axs = plt.subplots(nrows=1, ncols=n_plots, sharey=True)
@@ -473,12 +471,22 @@ class Unsupervised(object):
         plt.title(variable + 'vs. all')
         return plt
 
-    def return_features(features,priority=None):
+    def prioritize(features,limit=None,priority=None,high=True,target=None):
+        pass
+
+    def return_features(features,limit=None,priority=None,high=True,target=None):
         '''
         high/low
         target var
         mutual info, correlation
         '''
+        if priority:
+            if priority in self.column_distance[priority]:
+                scores=self.column_distance[priority]
+            else:
+                scores=self.make_distance_matrix(metric=priority)
+            #sort scores, return corresponding columns
+
         if features == None:
             features = self.vars_of_interest
         elif features == 'all':
@@ -499,7 +507,7 @@ class Unsupervised(object):
         see http://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.pdist.html#scipy.spatial.distance.pdist
         stores result as Dataframe in dictionary self.distance[metric]
         transpose=True means that the distance metric is computed between columns'''
-        features= return_features(features)
+        features= self.return_features(features)
 
         if transpose:
             values=self.df[features].values.T
@@ -544,27 +552,35 @@ class Unsupervised(object):
 
 
 class Classification(Unsupervised):
-    '''Classification object inherits from unsupervised object. Use with binary dependent variable'''
+    '''Classification object inherits from unsupervised object. Use with binary dependent variable
+    Models are initialized objects'''
 
-    def __init__(self, x, y, models=[
-                 RandomForestClassifier, SVC]):
-        super(Classification, self).__init__(x, y)
+    def __init__(self, x, y):
+        super(Classification, self).__init__(x, y,cost_benefit_matrix=None,
+            models=None,fit_kwargs=None)
 
-        self.rf = RandomForestClassifier(class_weight='auto')
+#        self.rf = RandomForestClassifier(class_weight='auto',n_jobs=self.processes)
         self.n_classes = self.df[self.y].unique().size
-        self.models = models
+        self.cost_benefit_matrix=cost_benefit_matrix
+        self.models=models
+        self.fit_kwargs=fit_kwargs
 
-    def fit(self, **kwargs):
-        self.fit_models = []
-        for model in self.models:
-            self.fitted_models.append(
-                model(**kwargs).fit(self.df[self.vars_of_interest], df[[self.y]]))
+    def fit(self, data_indices=None):
+        '''Uses .fit() method on each model
+        operates on models in parallel'''
+        p=Pool(self.processes)
+        p.map_async(lambda x,kwargs: x.fit(self.df[self.vars_of_interest],
+                                           df[[self.y]],**kwargs),
+                                            zip(self.models,self.fit_kwarg_dicts))
+        p.get()
+        p.close()
 
     def classify(self, grid_density=.02, holdout_set=False, n_folds=5):
         self.log.append('classify')
 
-    def correlated_features(self, n_features, plot=True):
-        self.log.append('correlated_features')
+
+#    def correlated_features(self, n_features, plot=True):
+#        self.log.append('correlated_features')
 
     def plot_rocs(self):
         self.log.append('plot_rocs()')
