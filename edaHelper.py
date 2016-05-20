@@ -564,6 +564,7 @@ class Classification(Unsupervised):
         self.cost_benefit_matrix=cost_benefit_matrix
         self.models=models
         self.fit_kwargs=fit_kwargs
+        self.fitted=False
 
     def fit(self, data_indices=None):
         '''Uses .fit() method on each model
@@ -572,8 +573,10 @@ class Classification(Unsupervised):
         p.map_async(lambda x,kwargs: x.fit(self.df[self.vars_of_interest],
                                            df[[self.y]],**kwargs),
                                             zip(self.models,self.fit_kwarg_dicts))
-        p.get()
+        out=p.get()
+        self.fitted=True
         p.close()
+        return out
 
     def classify(self, grid_density=.02, holdout_set=False, n_folds=5):
         self.log.append('classify')
@@ -582,9 +585,9 @@ class Classification(Unsupervised):
 #    def correlated_features(self, n_features, plot=True):
 #        self.log.append('correlated_features')
 
-    def plot_rocs(self):
+    def plot_rocs(self,data='x_val'):
         self.log.append('plot_rocs()')
-        for model in self.fitted_models:
+        for model in self.models:
             # model.predict_proba
             pass
 
@@ -600,12 +603,6 @@ class Classification(Unsupervised):
 
     def plot3D_predictions(
             self,
-            features_to_use='all',
-            max_plots=3,
-            max_n_features=9,
-            models=[
-                'SVC',
-                'GaussianNB'],
             plot_decision_boundary=False):
         '''Plots cross section of decision boundary using mean values for missing dimension'''
 
@@ -616,9 +613,6 @@ class Classification(Unsupervised):
         FN = Orange
         Plots surfaces for Some things?'''
         '''rf_important, '''
-        self.log.append('plot3D_predictions')
-        self.models = models
-        self.svc_kernels = ["linear", "rbf"]
 
     def plot2d_predictions(
             self,
@@ -626,13 +620,23 @@ class Classification(Unsupervised):
             plot_decision_boundary=True,
             decision_boundary_method='mean'):
         self.log.append('plot2d_predictions()')
+
+        '''Plots grid for each model
+        columns are variable pairs
+        rows are models
+        heat is model prediction
+        points on and off
+        points can get coloured based on their predictability FP FN TP TN (over x-validation?) over test set'''
+
+
         #plot continuous variables
 
         #plot categorical and boolean
 
         #
 
-    def compare_model_performance(self):
+    def compare_model_performance(self, data):
+        '''Print different performance metrics over given data'''
         self.log.append('compare_model_performance()')
 
     def max_profit(self, cost_benefit_matrix):
@@ -650,10 +654,7 @@ class Regression(Unsupervised):
         self.models = models
 
     def fit(self, **kwargs):
-        self.fit_models = []
-        for model in self.models:
-            self.fitted_models.append(
-                model(**kwargs).fit(self.df[self.vars_of_interest], self.df[self.y]))
+        pass
 
     def plot_against_y(self, function=None,y_margin=.1,lim=10,context='talk'):
         '''Where colour is squared error or some other var'''
