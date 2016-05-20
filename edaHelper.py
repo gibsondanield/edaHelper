@@ -25,7 +25,6 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
-from sklearn.naive_bayes import GaussianNB
 from sklearn.lda import LDA
 from sklearn.qda import QDA
 from sklearn.decomposition import TruncatedSVD, PCA
@@ -33,20 +32,38 @@ from sklearn.preprocessing import scale
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.cross_validation import ShuffleSplit
-from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.cross_validation import train_test_split
 from sklearn.svm import SVR
 from sklearn.metrics import normalized_mutual_info_score
 #from sklearn_pandas import DataFrameMapper, cross_val_score
 import statsmodels.api as sm
-import statsmodels.formula.api as smf
-from statsmodels.nonparametric.kernel_density import KDEMultivariate
 #from bokeh.charts import Scatter, show
 import seaborn as sns
 import networkx as nx
 import pprint
 
+
+def square_matrix_plot(matrix,vmax=1,vmin=0):
+    sns.set(style="white")
+    corr = 1-matrix
+
+    # Generate a mask for the upper triangle
+    mask = np.zeros_like(corr, dtype=np.bool)
+    mask[np.triu_indices_from(mask)] = True
+
+    # Set up the matplotlib figure
+    f, ax = plt.subplots(figsize=(11, 9))
+
+    # Generate a custom diverging colormap
+    cmap = sns.diverging_palette(220, 10, as_cmap=True)
+    sns.set_context('talk')
+    # Draw the heatmap with the mask and correct aspect ratio
+    sns.heatmap(corr,  cmap='YlGnBu', vmax=vmax,vmin=vmin,
+                square=True,
+                linewidths=.5, cbar_kws={"shrink": .9}, ax=ax)
+    plt.title('pairwise')
+    return f, ax
 
 def strip_col_names(df, suffix='',separator='_'):
     '''makes all columns available as attributes. checks for redundancy and appends append variable to redunant names'''
@@ -436,17 +453,15 @@ class Unsupervised(object):
     def plot_against_(
             self,
             variable,
+            features=None,
             dependent=True,
-            use_vars_of_interest=True,
+
             limit=10,
             **appropriate_plot_kwargs):
         '''Creates plots of every variable against the input variable'''
         #plt.figure()
 
-        if use_vars_of_interest:
-            cols=self.vars_of_interest[:limit]
-        else:
-            cols=self.df.columns[:limit]
+        cols= _return_features(features)[:limit]
         n_plots= len(cols)
         if dependent:
             fig, axs = plt.subplots(nrows=1, ncols=n_plots, sharey=True)
@@ -458,22 +473,55 @@ class Unsupervised(object):
         plt.title(variable + 'vs. all')
         return plt
 
-
-    def make_dCorr_matrix(self, features=None):
-        '''scipy correlation function is returning values greater than 1'''
-        if features is None:
+    def return_features(features,priority=None):
+        '''
+        high/low
+        target var
+        mutual info, correlation
+        '''
+        if features == None:
             features = self.vars_of_interest
+        elif features == 'all':
+            features=self.df.columns
+        elif features == 'categorical':
+            pass
+        elif features == 'continuous':
+            pass
+        elif features == 'temporal':
+            pass
+        elif features == 'text':
+            pass
+        return features
+
+
+    def make_distance_matrix(self, features=None,transpose=True,metric='correlation'):
+        '''uses scipy.spatial.distance.pdist to compute given distance metric
+        see http://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.pdist.html#scipy.spatial.distance.pdist
+        stores result as Dataframe in dictionary self.distance[metric]
+        transpose=True means that the distance metric is computed between columns'''
+        features= return_features(features)
+
+        if transpose:
+            values=self.df[features].values.T
+        else:
+            values=self.df[features].values
         l = len(features)
         arr = np.empty((l, l))
         arr[np.triu_indices(l, 1)] = sp.spatial.distance.pdist(
-            self.df[features].values.T, 'correlation')
-        self.correlation_distance = pd.DataFrame(
+            values, metric=metric)
+        if transpose:
+            self.column_distance[metric] = pd.DataFrame(
             arr, index=features, columns=features)
+            print self.distance[metric]
+        else:
+            self.row_distance[metric] = pd.DataFrame(
+            arr)
+
 
     def make_NMI_matrix(self,features=None):
-        if features is None:
-            #features = self.vars_of_interest
-            features=self.df.columns
+        '''computes normalized mutual information
+        stores in self.normalized_mutual_information'''
+        features= return_features(features)
         #make dummy vars without dropping?
         l = len(features)
         arr = np.empty((l, l))
