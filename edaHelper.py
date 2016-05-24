@@ -246,8 +246,9 @@ class Unsupervised(object):
             self.sc_all = StandardScaler(**kwargs)
             self.sc_all.fit(self.df)
 
-    def make_dummy_variables(
+    def encode_categorical_variables(
             self,
+            encoding='one_hot'
             drop_original=True,
             delimiter='_',
             dummy_na=False,
@@ -255,33 +256,34 @@ class Unsupervised(object):
         # find some way of dealing with NaN
         print self.vars_of_interest
         categorical_vars = self.df.dtypes.index[self.df.dtypes == 'category']
-        for variable in set(categorical_vars).intersection(
-                set(self.vars_of_interest)):
-            if self.df[variable].dtype == 'category':
-                if self.verbose:
-                    print 'making dummy variables for: ', variable
-                # First we create the columns with dummy variables.
-                # Note that the argument 'prefix' means the column names will be
-                # prefix_value for each unique value in the original column, so
-                # we set the prefix to be the name of the original variable.
-                dummy_df = pd.get_dummies(
-                    self.df[variable],
-                    prefix=variable,
-                    dummy_na=dummy_na,
-                    **kwargs)
-                if self.verbose:
-                    print variable, ' has value ', dummy_df.columns[0], ' when ', dummy_df.columns[1:].values, 'equal zero'
-                dummy_df = dummy_df.drop(dummy_df.columns[0], axis=1)
+        if encoding=='one_hot':
+            for variable in set(categorical_vars).intersection(
+                    set(self.vars_of_interest)):
+                if self.df[variable].dtype == 'category':
+                    if self.verbose:
+                        print 'making dummy variables for: ', variable
+                    # First we create the columns with dummy variables.
+                    # Note that the argument 'prefix' means the column names will be
+                    # prefix_value for each unique value in the original column, so
+                    # we set the prefix to be the name of the original variable.
+                    dummy_df = pd.get_dummies(
+                        self.df[variable],
+                        prefix=variable,
+                        dummy_na=dummy_na,
+                        **kwargs)
+                    if self.verbose:
+                        print variable, ' has value ', dummy_df.columns[0], ' when ', dummy_df.columns[1:].values, 'equal zero'
+                    dummy_df = dummy_df.drop(dummy_df.columns[0], axis=1)
 
-                # Remove old variable from dictionary.
-                if drop_original:
-                    self.df.pop(variable)
-                    self.vars_of_interest = self.vars_of_interest.drop(
-                        variable)
+                    # Remove old variable from dictionary.
+                    if drop_original:
+                        self.df.pop(variable)
+                        self.vars_of_interest = self.vars_of_interest.drop(
+                            variable)
 
-                self.df = self.df.join(dummy_df)
-                self.vars_of_interest = self.vars_of_interest.append(
-                    dummy_df.columns)
+                    self.df = self.df.join(dummy_df)
+                    self.vars_of_interest = self.vars_of_interest.append(
+                        dummy_df.columns)
         # self.categorize(max_unique_vars=2)
 
     def convert_for_statsmodels(self):
@@ -448,6 +450,55 @@ class Unsupervised(object):
                 self.chi_2_results[col] = chi_2
         return self.chi_2_results.values()
 
+
+    def prioritize(self,features,priority,limit=None,ascending=True,target='y'):
+        '''returns features prioritiezed by the given metric compared to the target, with the order given by the high keyword argument, truncated by the limit.
+        For example
+        prioritize(df.vars_of_interest, 'correlation',limit=10)
+        would return the 10 features that have the highest distance correlation with the self.y variable'''
+        if priority:
+            if priority in self.column_distance[priority]:
+                scores=self.column_distance[priority]
+            else:
+                scores=self.make_distance_matrix(metric=priority)
+            sort_ed=scores[target].sort_values(ascending=ascending).index
+        features[sort_ed]
+        if limit:
+            features=features[:limit]
+
+        return features
+
+    def return_features(self,features='vars_of_interest',limit=None,priority=None,ascending=True,target=None):
+        '''
+        high/low
+        target var
+        mutual info, correlation
+        '''
+
+
+            #sort scores, return corresponding columns
+        if isinstance(features,str):
+            if features=='vars_of_interest':
+                features = self.vars_of_interest
+            elif features == 'all':
+                features=self.df.columns
+            elif features == 'categorical':
+                pass
+            elif features == 'continuous':
+                pass
+            elif features == 'temporal':
+                pass
+            elif features == 'text':
+                pass
+
+        else:
+            raise TypeError, 'features must be a string'
+        if priority:
+            features = self.prioritize(features,priority,high=high,target=target)
+        if limit:
+            features=features[:limit]
+        return features
+
     def plot_against_(
             self,
             variable,
@@ -459,7 +510,9 @@ class Unsupervised(object):
         '''Creates plots of every variable against the input variable'''
         #plt.figure()
 
-        cols= self.return_features(features)[:limit]
+        cols= self.return_features(features)
+        print cols
+        cols=cols[:limit]
         n_plots= len(cols)
         if dependent:
             fig, axs = plt.subplots(nrows=1, ncols=n_plots, sharey=True)
@@ -471,35 +524,8 @@ class Unsupervised(object):
         plt.title(variable + 'vs. all')
         return plt
 
-    def prioritize(features,limit=None,priority=None,high=True,target=None):
-        pass
 
-    def return_features(features,limit=None,priority=None,high=True,target=None):
-        '''
-        high/low
-        target var
-        mutual info, correlation
-        '''
-        if priority:
-            if priority in self.column_distance[priority]:
-                scores=self.column_distance[priority]
-            else:
-                scores=self.make_distance_matrix(metric=priority)
-            #sort scores, return corresponding columns
 
-        if features == None:
-            features = self.vars_of_interest
-        elif features == 'all':
-            features=self.df.columns
-        elif features == 'categorical':
-            pass
-        elif features == 'continuous':
-            pass
-        elif features == 'temporal':
-            pass
-        elif features == 'text':
-            pass
-        return features
 
 
     def make_distance_matrix(self, features=None,transpose=True,metric='correlation'):
@@ -556,14 +582,14 @@ class Classification(Unsupervised):
     Models are initialized objects'''
 
     def __init__(self, x, y):
-        super(Classification, self).__init__(x, y,cost_benefit_matrix=None,
-            models=None,fit_kwargs=None)
+        super(Classification, self).__init__(x, y)
+            #models=None,fit_kwargs=None)
 
 #        self.rf = RandomForestClassifier(class_weight='auto',n_jobs=self.processes)
         self.n_classes = self.df[self.y].unique().size
-        self.cost_benefit_matrix=cost_benefit_matrix
-        self.models=models
-        self.fit_kwargs=fit_kwargs
+        #self.cost_benefit_matrix=cost_benefit_matrix
+        #self.models=models
+        #self.fit_kwargs=fit_kwargs
         self.fitted=False
 
     def fit(self, data_indices=None):
@@ -718,7 +744,7 @@ if __name__ == '__main__':
     titanic = sns.load_dataset("titanic")
     t = Classification(titanic, 'survived')
     t.categorize()
-    #t.make_dummy_variables()
+    #encode categorical here
 
     iris = sns.load_dataset("iris")
     i = Unsupervised(iris)
