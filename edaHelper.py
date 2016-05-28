@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-The aim of this programme is to automate some common tasks in exploratory data analysis (EDA) in an effort to save time for the user.
-The goal is insight rather than intelligence; the user must know the caveats of each of the methods implemented here.
+Automates common tasks in the data science workflow relating to exploratory data analysis, plotting, statistics and machine learning.
+
+Written in the style of pandas an Scikit-learn, as much as possible
+
 
 Created on Thu Sep 10 16:52:07 2015
 
@@ -45,15 +47,9 @@ import pprint
 def square_matrix_plot(matrix,vmax=1,vmin=0):
     sns.set(style="white")
     corr = 1-matrix
-
-    # Generate a mask for the upper triangle
     mask = np.zeros_like(corr, dtype=np.bool)
     mask[np.triu_indices_from(mask)] = True
-
-    # Set up the matplotlib figure
-    f, ax = plt.subplots(figsize=(11, 9))
-
-    # Generate a custom diverging colormap
+    fig, ax = plt.subplots(figsize=(11, 9))
     cmap = sns.diverging_palette(220, 10, as_cmap=True)
     sns.set_context('talk')
     # Draw the heatmap with the mask and correct aspect ratio
@@ -61,7 +57,7 @@ def square_matrix_plot(matrix,vmax=1,vmin=0):
                 square=True,
                 linewidths=.5, cbar_kws={"shrink": .9}, ax=ax)
     plt.title('pairwise')
-    return f, ax
+    return fig, ax
 
 def strip_col_names(df, suffix='',separator='_'):
     '''makes all columns available as attributes. checks for redundancy and appends append variable to redunant names'''
@@ -215,6 +211,10 @@ class Unsupervised(object):
         self.log = ['Initialized object']  # look into logging module
         self.vars_of_interest = self.df.columns[self.df.columns != self.y]
 
+    def __str__(self):
+#        s=''
+#        s.join([str(type(self)),self.df.info()])
+        return str(self.df)
 
     def set_vars_of_interest(self, columns=None):
         '''sets vars_of_intetest to specified values. Defaults to non-objects.
@@ -248,7 +248,7 @@ class Unsupervised(object):
 
     def encode_categorical_variables(
             self,
-            encoding='one_hot'
+            encoding='one_hot',
             drop_original=True,
             delimiter='_',
             dummy_na=False,
@@ -320,18 +320,19 @@ class Unsupervised(object):
 
     def plot_all(
             self,
-            cols=None,
-            prioritization_method='correlation',
+            features='vars_of_interest',
+            priority='correlation',
+            ascending=False,
+            target='y',
             limit=10,
             **appropriate_plot_kwargs):
         '''
         if cols=None, plots vars_of_interest
         prioritizations: correlation, mutual information'''
+        cols=self.return_features(features='vars_of_interest', limit=limit, priority= priority, ascending=ascending, target=target)
 
-        if cols is None:
-            cols = self.vars_of_interest
 
-        for k, i in enumerate(cols[:limit]):
+        for k, i in enumerate(cols):
             plt.figure(k)
             for j in cols[k:]:
                 print 'plotting', k, i, j
@@ -470,12 +471,11 @@ class Unsupervised(object):
 
     def return_features(self,features='vars_of_interest',limit=None,priority=None,ascending=True,target=None):
         '''
-        high/low
-        target var
-        mutual info, correlation
+        see prioritize method for keyword arguments
+        first selects features, then orders them, then limits them
         '''
 
-
+        index=None
             #sort scores, return corresponding columns
         if isinstance(features,str):
             if features=='vars_of_interest':
@@ -485,16 +485,16 @@ class Unsupervised(object):
             elif features == 'categorical':
                 pass
             elif features == 'continuous':
-                pass
+                index=self.df.dtypes[self.df.dtypes.apply(lambda x: x==float or x==int).values].index
             elif features == 'temporal':
                 pass
             elif features == 'text':
                 pass
 
         else:
-            raise TypeError, 'features must be a string'
+            raise TypeError, 'features argument must be a string'
         if priority:
-            features = self.prioritize(features,priority,high=high,target=target)
+            features = self.prioritize(features,priority,ascending=ascending,target=target)
         if limit:
             features=features[:limit]
         return features
@@ -504,15 +504,15 @@ class Unsupervised(object):
             variable,
             features=None,
             dependent=True,
-
             limit=10,
+            priority=None,
             **appropriate_plot_kwargs):
         '''Creates plots of every variable against the input variable'''
         #plt.figure()
 
         cols= self.return_features(features)
-        print cols
-        cols=cols[:limit]
+        if self.verbose==True:
+            print cols
         n_plots= len(cols)
         if dependent:
             fig, axs = plt.subplots(nrows=1, ncols=n_plots, sharey=True)
@@ -611,11 +611,17 @@ class Classification(Unsupervised):
 #    def correlated_features(self, n_features, plot=True):
 #        self.log.append('correlated_features')
 
-    def plot_rocs(self,data='x_val'):
+    def plot_rocs(self,data='x_val',plot_all_models_together=True):
+        '''data=
+        'xval' - plots ROC over cross-validation folds
+        'test'
+        'train'
+        '''
         self.log.append('plot_rocs()')
-        for model in self.models:
-            # model.predict_proba
-            pass
+        if self.fitted==True:
+            for model in self.models:
+                # model.predict_proba
+                pass
 
     def plot_decision_tree(self, **kwargs):
         '''http://scikit-learn.org/stable/modules/tree.html'''
@@ -761,3 +767,13 @@ if __name__ == '__main__':
 #    plt.figure()
     #ax=make_appropriate_plot('hp','displ',a.df,z_name='accel')
 
+'''
+To do list:
+implement ROC plots
+convert for loops to pool.map where possible
+expand appropriate plot
+finish prioritization
+update plot_against with prioritization
+overload string operator to print info and some attributes
+include binary encoding
+'''
