@@ -555,7 +555,7 @@ class Unsupervised(object):
     def make_NMI_matrix(self,features=None):
         '''computes normalized mutual information
         stores in self.normalized_mutual_information'''
-        features= return_features(features)
+        features= self.return_features(features)
         #make dummy vars without dropping?
         l = len(features)
         arr = np.empty((l, l))
